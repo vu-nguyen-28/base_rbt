@@ -15,7 +15,3 @@ pip install base_rbt
 ## How to use
 
 Fill me in please! Don’t forget code examples:
-
-``` python
-1+1
-```
