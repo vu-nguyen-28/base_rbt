@@ -9,9 +9,13 @@ documentation.
 ## Install
 
 ``` sh
-pip install base_rbt
+!pip install git+https://github.com/hamish-haggerty/base_rbt.git#egg='base_rbt'
 ```
 
 ## How to use
 
-Fill me in please! Don’t forget code examples:
+First we need to import some libraries:
+
+Here is a (silly!) modification to the BT loss function. We are just
+scaling the bt loss function by $0.01$. However, this illustrates the
+general API if we want to modify the loss function.
