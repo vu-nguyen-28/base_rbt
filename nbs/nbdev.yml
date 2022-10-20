@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "base_rbt"
+  site-url: "https://hamish-haggerty.github.io/base_rbt"
+  description: "Base functions and classes we use for our hacking on BT / RBT and related ideas"
+  repo-branch: main
+  repo-url: "https://github.com/hamish-haggerty/base_rbt"
