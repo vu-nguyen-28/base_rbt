@@ -16,24 +16,46 @@ documentation.
 
 After installing, import like this:
 
+``` python
+from base_rbt.base_model import *
+from base_rbt.base_lf import *
+```
+
 We also need some other libraries:
+
+``` python
+import self_supervised
+import torch
+from fastai.vision.all import *
+from self_supervised.augmentations import *
+from self_supervised.layers import *
+```
+
+``` python
+device='cuda' if torch.cuda.is_available() else 'cpu'
+```
 
 Here is a (silly!) modification to the BT loss function. We are just
 scaling the bt loss function by $0.01$. However, this illustrates the
 general API if we want to modify the loss function.
 
-------------------------------------------------------------------------
-
-<a
-href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/index.py#L37"
-target="_blank" style="float:right; font-size:smaller">source</a>
-
-### BarlowTwins.lf
-
->      BarlowTwins.lf (pred, *yb)
+``` python
+@patch
+def lf(self:BarlowTwins, pred,*yb): return 0.01*lf_bt(pred, self.I,self.lmb)
+```
 
 Now we give an end to end example. First we need a dls i.e. a
 dataloader:
+
+``` python
+#Get some MNIST data and plonk it into a dls
+path = untar_data(URLs.MNIST)
+items = get_image_files(path/'training') #i.e. NOT testing!!!
+items = items[0:10]
+split = RandomSplitter(valid_pct=0.0)
+tds = Datasets(items, [PILImageBW.create, [parent_label, Categorize()]], splits=split(items))
+dls = tds.dataloaders(bs=2,num_workers=0, after_item=[ToTensor(), IntToFloatTensor()], device=device)
+```
 
 Now we patch in our own definition of a loss function. First define it:
 
@@ -69,15 +91,10 @@ def lf_rbt(pred,seed,I,lmb):
 
 Then patch it in:
 
-------------------------------------------------------------------------
-
-<a
-href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/index.py#L37"
-target="_blank" style="float:right; font-size:smaller">source</a>
-
-### BarlowTwins.lf
-
->      BarlowTwins.lf (pred, *yb)
+``` python
+@patch
+def lf(self:BarlowTwins, pred,*yb): return lf_rbt(pred,seed=self.seed,I=self.I,lmb=self.lmb)
+```
 
 Now we can train RBT:
 
