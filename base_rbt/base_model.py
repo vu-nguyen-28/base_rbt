@@ -12,6 +12,9 @@ from self_supervised.layers import *
 
 # %% ../nbs/base_model.ipynb 7
 #Base functions / classes we need to train a BT / RBT model.
+
+#TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
+#sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
 class BarlowTwinsModel(Module):
     """An encoder followed by a projector
     """
@@ -40,17 +43,31 @@ class BarlowTwins(Callback):
         if print_augs: print(self.aug1), print(self.aug2)
         store_attr('lmb')
         
+        self.index=-1 #Gets updated after each batch
+        self.seed = np.random.randint(0,10000) #gets updated after each batch
+        
     def before_fit(self): 
         self.learn.loss_func = self.lf
         nf = self.learn.model.projector[-1].out_features
         self.I = torch.eye(nf).to(self.dls.device)
 
+    def update_seed(self):
+        
+        indexmod=2
+        if self.index%indexmod == 0: 
+            self.seed = np.random.randint(0,10000)
+
+    def before_epoch(self):
+        self.index=-1
             
     def before_batch(self):
     
         xi,xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
         self.learn.xb = (torch.cat([xi, xj]),)
 
+        self.index=self.index+1
+        self.update_seed()
+        
     @torch.no_grad()
     def show(self, n=1):
  
@@ -64,9 +81,9 @@ class BarlowTwins(Callback):
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
 # %% ../nbs/base_model.ipynb 9
-def lf_bt(pred,I,lmb): #pred is (bs+bs)*projection_size
+def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
-
+    
     z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
 
     z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
@@ -79,4 +96,5 @@ def lf_bt(pred,I,lmb): #pred is (bs+bs)*projection_size
 
 # %% ../nbs/base_model.ipynb 10
 @patch
-def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
+def lf(self:BarlowTwins, pred,*yb):
+    return lf_bt(pred, self.I,self.lmb)
