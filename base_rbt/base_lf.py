@@ -5,14 +5,11 @@ __all__ = ['device', 'bs', 'ps', 'x', 'y', 'max_corr', 'seed_everything', 'rando
            'Cdiff_Sup']
 
 # %% ../nbs/base_lf.ipynb 3
-#import self_supervised
-#import torch
+from .base_model import *
 from fastai.vision.all import *
 import random
 import os
 import numpy as np
-#from self_supervised.augmentations import *
-#from self_supervised.layers import *
 
 # %% ../nbs/base_lf.ipynb 4
 device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -141,6 +138,3 @@ class Cdiff_Sup:
             cdiff_sup = C_z1z2(z1norm=z1norm,z1norm_2=z1norm_2,z2norm=z2norm,z2norm_2=z2norm_2,indep=self.indep)
     
             return cdiff_sup
-
-# %% ../nbs/base_lf.ipynb 19
-#| export
