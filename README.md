@@ -104,19 +104,33 @@ We now need an augmentation pipeline. Let’s also take a look at what it
 looks like.
 
 ``` python
-aug_pipelines = get_barlow_twins_aug_pipelines(size=28, rotate=True,flip_p=0,resize_scale=(0.7,1), jitter=False, bw=False,blur=True,blur_p=0.5,blur_s=8, stats=None, cuda=False)
+n_in=1
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=1)
 model = create_barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
-learn = Learner(dls, model, cbs=[BarlowTwins(aug_pipelines,n_in=1, print_augs=True)])
+
+aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=28,
+                    rotate=False,jitter=False,bw=False,blur=True,solar=False, #Whether to use aug or not
+                    resize_scale=(0.5, 1.0),resize_ratio=(3/4, 4/3), rotate_deg=45,blur_s=11,s1=3,sol_t=0.05,sol_a=0.05, #hps of augs
+                    flip_p=0.5, rotate_p=0.3, jitter_p=0.3, bw_p=0.3, blur_p=0.5,sol_p=0.1, #prob of performing aug
+                    same_on_batch=False,stats=mnist_stats, cuda=(device=='cuda'))
+
+aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=28,
+                    rotate=False,jitter=False,bw=False,blur=True,solar=False, #Whether to use aug or not
+                    resize_scale=(0.5, 1.0),resize_ratio=(3/4, 4/3), rotate_deg=45,blur_s=11,s1=3,sol_t=0.05,sol_a=0.05, #hps of augs
+                    flip_p=0.5, rotate_p=0.3, jitter_p=0.3, bw_p=0.3, blur_p=0.5,sol_p=0.1, #prob of performing aug
+                    same_on_batch=False,stats=mnist_stats, cuda=(device=='cuda'))
+
+aug_pipelines = [aug_pipelines_1,aug_pipelines_1]
+tem = BarlowTwins(aug_pipelines,n_in=n_in,print_augs=True)
+learn = Learner(dls,model, cbs=[tem])
 b = dls.one_batch()
 learn._split(b)
 learn('before_batch')
 axes = learn.barlow_twins.show(n=3)
 ```
 
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 's': 8, 'same_on_batch': False} -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0}
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 's': 8, 'same_on_batch': False} -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0}
-    hi
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
 
 ![](index_files/figure-gfm/cell-9-output-2.png)
 
@@ -129,46 +143,9 @@ ps=500 #projection size
 hs=ps #hidden size in mlp at the end; typically just = ps. 
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=1) #create the encoder
 model = create_barlow_twins_model(fastai_encoder, hidden_size=hs,projection_size=ps)#plonk the projector on the end of the encoder
-learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=1, print_augs=True)]) #build the learner
+learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=1, print_augs=False)]) #build the learner
 learn.fit(1) #train model, i.e. weights of encoder and projector.
 ```
-
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 's': 8, 'same_on_batch': False} -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0}
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianBlur -- {'p': 0.5, 's': 8, 'same_on_batch': False} -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0}
-
-<style>
-    /* Turns off some styling */
-    progress {
-        /* gets rid of default border in Firefox and Opera. */
-        border: none;
-        /* Needs to be in here for Safari polyfill so background images work as expected. */
-        background-size: auto;
-    }
-    progress:not([value]), progress:not([value])::-webkit-progress-bar {
-        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
-    }
-    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
-        background: #F44336;
-    }
-</style>
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: left;">
-      <th>epoch</th>
-      <th>train_loss</th>
-      <th>valid_loss</th>
-      <th>time</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>0</td>
-      <td>815.021606</td>
-      <td>None</td>
-      <td>00:01</td>
-    </tr>
-  </tbody>
-</table>
 
 Once we have trained the `fastai_encoder` can evaluate in various ways.
 e.g. linear evaluation.

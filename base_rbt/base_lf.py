@@ -30,7 +30,7 @@ def seed_everything(seed=42):
 # %% ../nbs/base_lf.ipynb 7
 def random_sinusoid(x,std=0.1,seed=0):
     
-    seed_everything(seed=seed)
+    #seed_everything(seed=seed)
     
     ps = x.shape[1]
     
