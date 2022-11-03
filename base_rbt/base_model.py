@@ -199,8 +199,3 @@ def lf_bt(pred,I,lmb):
     cdiff = (C - I)**2
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
-
-# %% ../nbs/base_model.ipynb 12
-@patch
-def lf(self:BarlowTwins, pred,*yb):
-    return lf_bt(pred, self.I,self.lmb)
