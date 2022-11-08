@@ -31,6 +31,7 @@ class RandomGaussianBlur(RandTransform):
         if self.s1 is None:
             self.s1 = np.random.uniform(0.1,2)
 
+            
         tfm = korniatfm.RandomGaussianBlur(kernel_size=s,sigma=(self.s1,self.s1),same_on_batch=self.same_on_batch,p=self.prob)
         return tfm(x)
 
@@ -64,7 +65,10 @@ def get_batch_augs(size,
     
     tfms += [tvtfm.RandomResizedCrop((size, size), scale=resize_scale, ratio=resize_ratio)]
     
-    tfms += [korniatfm.RandomHorizontalFlip(p=flip_p)]
+    #Unfortunately for some reason this doesn't work, so we can't apply "same_on_batch=False"
+    #tfms += [korniatfm.RandomResizedCrop((size, size), scale=resize_scale, ratio=resize_ratio, same_on_batch=same_on_batch)]
+    
+    tfms += [korniatfm.RandomHorizontalFlip(p=flip_p,same_on_batch=same_on_batch)]
 
     if rotate: tfms += [Rotate(max_deg=rotate_deg, p=rotate_p, batch=same_on_batch)]
 
@@ -74,14 +78,14 @@ def get_batch_augs(size,
     if bw:     tfms += [korniatfm.RandomGrayscale(p=bw_p, same_on_batch=same_on_batch)]
         
 
-    if blur:   tfms += [RandomGaussianBlur(p=blur_p, s=blur_s,s1=s1, same_on_batch=same_on_batch)]
+    if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,s1=s1, same_on_batch=same_on_batch)]
 
     korniatfm.RandomSolarize.order = RandomGaussianBlur.order + 1 #we want to apply solarization after RandomGaussianBlur
     
     if solar: tfms += [korniatfm.RandomSolarize(p=sol_p,thresholds=sol_t, additions=sol_a,same_on_batch=same_on_batch)]
 
     
-    if noise: tfms+=[korniatfm.RandomGaussianNoise(mean=0.0, std=noise_std, same_on_batch=False, p=noise_p, keepdim=False, return_transform=None)]
+    if noise: tfms+=[korniatfm.RandomGaussianNoise(mean=0.0, std=noise_std, same_on_batch=False, p=noise_p)]
     
     if stats is not None: tfms += [Normalize.from_stats(*stats, cuda=cuda)]
 
