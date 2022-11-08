@@ -105,7 +105,6 @@ class Cdiff_Sup:
         inner_steps=self.inner_steps
         z1norm=z1norm.detach()
         z2norm=z2norm.detach()
-        max_corr = Max_Corr(qs=self.qs)
         optimizer = torch.optim.Adam(list(max_corr.parameters()),lr=0.001)
         
         for i in range(inner_steps):
