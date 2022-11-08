@@ -2,5 +2,7 @@ website:
   sidebar:
     contents:
       - index.ipynb
+      - LinearModelCifarHacking.ipynb
+      - RandomGaussianBlurHacking.ipynb
       - base_lf.ipynb
       - base_model.ipynb

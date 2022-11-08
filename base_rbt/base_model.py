@@ -13,7 +13,7 @@ from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
 
-# %% ../nbs/base_model.ipynb 7
+# %% ../nbs/base_model.ipynb 6
 #My edited version of RandTransform
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
@@ -53,9 +53,9 @@ class RandomGaussianBlur(RandTransform):
 #         return tfm(x)
     
 def get_batch_augs(size,
-                    rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
-                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3), rotate_deg=30,jitter_s=.6,blur_s=(4,32),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
-                    flip_p=0.5, rotate_p=0.3, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
+                    noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
+                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
+                    flip_p=0.5, rotate_p=0.3,noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
                     same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
     "Input batch augmentations implemented in tv+kornia+fastai"
     tfms = []
@@ -80,24 +80,15 @@ def get_batch_augs(size,
     
     if solar: tfms += [korniatfm.RandomSolarize(p=sol_p,thresholds=sol_t, additions=sol_a,same_on_batch=same_on_batch)]
 
+    
+    if noise: tfms+=[korniatfm.RandomGaussianNoise(mean=0.0, std=noise_std, same_on_batch=False, p=noise_p, keepdim=False, return_transform=None)]
+    
     if stats is not None: tfms += [Normalize.from_stats(*stats, cuda=cuda)]
 
     tfms += xtra_tfms
 
     pipe = Pipeline(tfms, split_idx = 0)
     return pipe
-
-#debugging:
-# def get_batch_augs(size,
-#                 rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
-#                 resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3), rotate_deg=30,jitter_s=.6,blur_s=(4,32),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
-#                 flip_p=0.5, rotate_p=0.3, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
-#                 same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
-
-
-#     blur = RandomGaussianBlur(prob=blur_p, s=blur_s, same_on_batch=same_on_batch)
-#     pipe = Pipeline([blur],split_idx = 0)
-#     return pipe
 
 @delegates(get_batch_augs)
 def get_multi_aug_pipelines(size, **kwargs): return get_batch_augs(size, **kwargs)
@@ -107,7 +98,7 @@ def get_barlow_twins_aug_pipelines(size,**kwargs): return get_multi_aug_pipeline
 
 
 
-# %% ../nbs/base_model.ipynb 9
+# %% ../nbs/base_model.ipynb 8
 #Base functions / classes we need to train a BT / RBT model.
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -138,7 +129,6 @@ class BarlowTwins(Callback):
         self.aug1, self.aug2 = aug_pipelines
         if print_augs: print(self.aug1), print(self.aug2)
         store_attr('lmb')
-        
         self.n_in=n_in
         
         self.index=-1 #Gets updated after each batch
@@ -186,7 +176,7 @@ class BarlowTwins(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_model.ipynb 11
+# %% ../nbs/base_model.ipynb 10
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
