@@ -24,12 +24,12 @@ def seed_everything(seed=42):
     torch.backends.cudnn.deterministic = True
 
 # %% ../nbs/base_lf.ipynb 6
-def random_sinusoid(x,std=0.1,seed=0,device='cuda'):
+def random_sinusoid(x,std=0.1,seed=0):
     
-    #seed_everything(seed=seed)
-    
+    device=default_device().type
     ps = x.shape[1]
-    
+    #TODO: Get this working in a reproducible way
+    #seed_everything(seed=seed) 
     X = torch.randn(6,ps).to(device) #use this to get t,s,u,v,a,b i.e. random components of sinusoid
     
     t,s = std*X[0:2,:]
@@ -38,7 +38,7 @@ def random_sinusoid(x,std=0.1,seed=0,device='cuda'):
 
     return a*torch.sin(t*x[:,]*math.pi+u) + b*torch.cos(s*x[:,]*math.pi+v)
 
-# %% ../nbs/base_lf.ipynb 10
+# %% ../nbs/base_lf.ipynb 12
 def C_z1z2(z1norm,z1norm_2,z2norm,z2norm_2,indep=True):
     
     bs = z1norm.shape[0]
@@ -52,7 +52,7 @@ def C_z1z2(z1norm,z1norm_2,z2norm,z2norm_2,indep=True):
         
     return cdiff
 
-# %% ../nbs/base_lf.ipynb 13
+# %% ../nbs/base_lf.ipynb 15
 class Cdiff_Rand:
     
     def __init__(self,seed,std=0.1,K=2,indep=False):
@@ -74,7 +74,7 @@ class Cdiff_Rand:
     
         return cdiff_rand
 
-# %% ../nbs/base_lf.ipynb 14
+# %% ../nbs/base_lf.ipynb 16
 class Max_Corr(nn.Module):
     def __init__(self,
                  qs #qs will tend to be =ps i.e. projection dimension, although this is not required. 
@@ -86,7 +86,7 @@ class Max_Corr(nn.Module):
     def forward(self,x,y):
         return self.m1(x),self.m2(y)
 
-# %% ../nbs/base_lf.ipynb 17
+# %% ../nbs/base_lf.ipynb 19
 class Cdiff_Sup:
     
     def __init__(self,I,qs,inner_steps,indep=True):
