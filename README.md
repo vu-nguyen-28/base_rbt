@@ -16,6 +16,7 @@ After installing, import like this:
 ``` python
 from base_rbt.base_model import *
 from base_rbt.base_lf import *
+from base_rbt.base_linear import *
 ```
 
 We also need some other libraries:
@@ -129,8 +130,8 @@ learn('before_batch')
 axes = learn.barlow_twins.show(n=3)
 ```
 
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 0.5, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 0.5, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
 
 ![](index_files/figure-gfm/cell-9-output-2.png)
 
@@ -149,3 +150,271 @@ learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=1, print_augs=Fal
 
 Once we have trained the `fastai_encoder` can evaluate in various ways.
 e.g. linear evaluation.
+
+**Ok now let’s do an end to end CIFAR10 example. Let’s comment a little
+more on the API as we go - this will be helpful when considering how to
+add functionality to (in particular) base_model**
+
+Here are the steps at a high level: - Define hps (e.g. batch size,
+projector dimension etc). Note that if the model changes then there may
+be different hps - Get the data (train, tune, test) -\> dls,dls_val,
+dls_test - Patch in loss function definition - Setup/define
+augmentations, encoder, model, learner - Train BT/RBT (i.e. fit the
+learner - Train linear classifier and record performance
+
+Step 1): We need the data, and to set all the hps.
+
+``` python
+#hps's
+device ='cuda' if torch.cuda.is_available() else 'cpu'
+cuda = (device=='cuda')
+seed=42
+n_in=3
+indim=1024 #find this by inspection, e.g. for resnet18 is 1024
+size=32
+ps=1024
+seed=42 
+bs=64 #for training BT
+bs_val=128 #for training linear head
+bs_test=256 #for evaluating linear head
+ts=bs*4#00
+ts_val=bs_val*5
+ts_test=5*bs_test
+```
+
+``` python
+#data: dls, dls_val, dls_test
+#get the data: Need dls, dls_val, dls_test
+path = untar_data(URLs.CIFAR)
+fnames = get_image_files(path / "train")
+fnames.sort()
+#shuffle data (in reproducible way)
+seed_everything(seed=seed)
+fnames = fnames.shuffle()
+
+#fnames for train, eval and test
+fnames_train = fnames[0:ts]
+fnames_val = fnames[ts:ts+ts_val]
+fnames_test = fnames[ts+ts_val:ts+ts_val+ts_test]
+
+def label_func(fname):
+    return fname.name.split('_')[1].strip('png').strip('.')
+
+#labels for train,eval and test
+labels = [label_func(fname) for fname in fnames]
+labels_train = labels[0:ts]
+labels_val = labels[ts:ts+ts_val]
+labels_test = labels[ts+ts_val:ts+ts_val+ts_test]
+
+#Used for training encoder i.e. BT
+dls = ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+                                  valid_pct=0.0,num_workers=12,device=device,seed=seed)
+#Used for training linear classifier
+dls_val = ImageDataLoaders.from_lists(path, fnames_val, labels_val,bs=bs_val, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+                                  valid_pct=0.0,num_workers=12,device=device,seed=seed)
+
+#Used for evaluating linear classifier
+dls_test = ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs_val, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+                                  valid_pct=0.0,num_workers=12,device=device,seed=seed)
+
+
+set(labels) #Check that the labels make sense
+```
+
+    {'airplane',
+     'automobile',
+     'bird',
+     'cat',
+     'deer',
+     'dog',
+     'frog',
+     'horse',
+     'ship',
+     'truck'}
+
+Step 2): Patch in definition of loss function:
+
+``` python
+#Using BT
+@patch
+def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
+```
+
+Step 3): Define encoder and model; Define augmentation pipelines; Define
+learner.
+
+``` python
+fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=n_in)
+
+#If we are using a different model, this call will just look like `create_rat_model(...)`
+model = create_barlow_twins_model(fastai_encoder, hidden_size=ps,nlayers=1,projection_size=ps)
+
+
+aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
+                                                 bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
+                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.025, jitter_s=1.0, blur_s=math.ceil(size/10)+1,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.25, jitter_p=0.8, blur_p=1.0,sol_p=0.0,
+                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[])
+
+aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=size,
+                                                 bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
+                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.025, jitter_s=1.0, blur_s=math.ceil(size/10)+1,sol_t=0.01,sol_a=0.01,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.1,noise_p=0.1, jitter_p=0.8, blur_p=0.1,sol_p=0.2,
+                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[])
+
+aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
+
+aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
+
+#If we are using a different `callback` to `BarlowTwins` then we can simply replace `BarlowTwins` with 
+#e.g. `BarlowTriplets`. We can define in base_model and just import with no issues. 
+learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=n_in,lmb=1/ps,print_augs=False)])
+```
+
+Step 3): (Optional): View the augmentations:
+
+``` python
+show_bt_batch(dls=dls,n_in=n_in,aug=aug_pipelines,n=2,print_augs=True)
+```
+
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> ColorJitter -> RandomGrayscale -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 1.0, 's': 5, 's1': None, 'same_on_batch': False} -> RandomSolarize -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0} -> Normalize -- {'mean': tensor([[[[0.4910]],
+
+             [[0.4820]],
+
+             [[0.4470]]]]), 'std': tensor([[[[0.2470]],
+
+             [[0.2430]],
+
+             [[0.2610]]]]), 'axes': (0, 2, 3)}
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> ColorJitter -> RandomGrayscale -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.1, 's': 5, 's1': None, 'same_on_batch': False} -> RandomSolarize -> Rotate -- {'size': None, 'mode': 'bilinear', 'pad_mode': 'reflection', 'mode_mask': 'nearest', 'align_corners': True, 'p': 1.0} -> Normalize -- {'mean': tensor([[[[0.4910]],
+
+             [[0.4820]],
+
+             [[0.4470]]]]), 'std': tensor([[[[0.2470]],
+
+             [[0.2430]],
+
+             [[0.2610]]]]), 'axes': (0, 2, 3)}
+
+![](index_files/figure-gfm/cell-15-output-2.png)
+
+Step 4): Fit the learner:
+
+``` python
+learn.fit(1)
+```
+
+<style>
+    /* Turns off some styling */
+    progress {
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        /* Needs to be in here for Safari polyfill so background images work as expected. */
+        background-size: auto;
+    }
+    progress:not([value]), progress:not([value])::-webkit-progress-bar {
+        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
+    }
+    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
+        background: #F44336;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: left;">
+      <th>epoch</th>
+      <th>train_loss</th>
+      <th>valid_loss</th>
+      <th>time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>587.462830</td>
+      <td>None</td>
+      <td>00:09</td>
+    </tr>
+  </tbody>
+</table>
+
+    /Users/hamishhaggerty/opt/anaconda3/envs/renamelater/lib/python3.10/site-packages/fastprogress/fastprogress.py:73: UserWarning: Your generator is empty.
+      warn("Your generator is empty.")
+
+Step 5): Setup for linear evaluation:
+
+``` python
+aug_pipelines_val=[get_linear_batch_augs(size=size,stats=cifar_stats,resize_scale=(0.3, 1.0))]
+
+
+main_linear_eval = Main_Linear_Eval(size=size,n_in=n_in,numfit=1,indim=1024, #size,n_in=3 (color channels),number of epochs to fit linear, and output dimension of encoder
+                        dls_val=dls_val,dls_test=dls_test, #dls for training linear and evaluating linear
+                        stats=cifar_stats,
+                        aug_pipelines_val=aug_pipelines_val, #aug_pipeline for training 
+                        encoder=fastai_encoder #encoder
+                                   )
+```
+
+Step 6): (optional): View validation augs (generally just cropping and
+normalization)
+
+``` python
+show_linear_batch(dls=dls_val,n_in=n_in,n=2,aug=aug_pipelines_val,print_augs=True)
+```
+
+    Pipeline: RandomResizedCrop -> Normalize -- {'mean': tensor([[[[0.4910]],
+
+             [[0.4820]],
+
+             [[0.4470]]]]), 'std': tensor([[[[0.2470]],
+
+             [[0.2430]],
+
+             [[0.2610]]]]), 'axes': (0, 2, 3)}
+    Pipeline: 
+
+![](index_files/figure-gfm/cell-18-output-2.png)
+
+Step 7): (optional): View validation augs (generally just cropping and
+normalization)
+
+``` python
+acc=main_linear_eval()
+acc
+```
+
+<style>
+    /* Turns off some styling */
+    progress {
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        /* Needs to be in here for Safari polyfill so background images work as expected. */
+        background-size: auto;
+    }
+    progress:not([value]), progress:not([value])::-webkit-progress-bar {
+        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
+    }
+    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
+        background: #F44336;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: left;">
+      <th>epoch</th>
+      <th>train_loss</th>
+      <th>valid_loss</th>
+      <th>time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>2.234024</td>
+      <td>None</td>
+      <td>00:09</td>
+    </tr>
+  </tbody>
+</table>
+
+    0.18125000596046448
