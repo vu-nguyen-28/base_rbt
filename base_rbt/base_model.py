@@ -13,6 +13,8 @@ from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
 
+from .helper import *
+
 # %% ../nbs/base_model.ipynb 6
 #My edited version of RandTransform
 class RandomGaussianBlur(RandTransform):
@@ -137,7 +139,7 @@ class BarlowTwins(Callback):
         
         self.index=-1 #Gets updated after each batch
         self.seed = np.random.randint(0,10000) #gets updated after each batch
-
+        self.acc_dict = {}
         
     def before_fit(self): 
         self.learn.loss_func = self.lf
@@ -151,8 +153,8 @@ class BarlowTwins(Callback):
             self.seed = np.random.randint(0,10000)
 
     def before_epoch(self):
-        self.index=-1
-            
+        self.index=-1  
+  
     def before_batch(self):
         
         #TODO: Make this nicer (possibly can load in data as TensorImage(BW) or something?)
