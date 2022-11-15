@@ -63,7 +63,6 @@ def get_BT_batch_augs(size,
                     same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
     "Input batch augmentations implemented in tv+kornia+fastai"
     
-    print('Export ran')
     tfms = []
 
     korniatfm.RandomHorizontalFlip.order = RandomResizedCrop.order-1

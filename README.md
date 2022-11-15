@@ -204,15 +204,47 @@ Step 2): Patch in definition of loss function, and also `after_epoch`
 # def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
 ```
 
-------------------------------------------------------------------------
+``` python
+def lf_rat(pred,I,lmb):
+    
+    bs,nf = bs,nf = pred[0].size(0)//2,pred[0].size(1)
+    
+    pred1=pred[0]
+    pred2=pred[1]
+    
+    z1, z2 = pred1[:bs],pred1[bs:] #so z1 is bs*projection_size, likewise for z2
 
-<a
-href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L267"
-target="_blank" style="float:right; font-size:smaller">source</a>
+    #Used to encode, primarily invariance
+    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
+    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
 
-### lf_rat
+    #Used to encode, primarily redundancy-reduction
+    z1_two,z2_two = pred2[:bs],pred2[bs:]
+    z1norm_two = (z1_two - z1_two.mean(0)) / z1_two.std(0, unbiased=False)
+    z2norm_two = (z2_two - z2_two.mean(0)) / z2_two.std(0, unbiased=False)
 
->      lf_rat (pred, I, lmb)
+    #The invariance term
+    Invar = (z1norm-z2norm).pow(2) #add to loss (there are d-terms)
+
+    #The redundancy reduction term
+    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
+    cdiff = CdiffRand(z1norm_two,z2norm_two)
+    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
+    cdiff_2 = CdiffSup(z1norm_two,z2norm_two)
+    redun_reduc = 0.5*cdiff + 0.5*cdiff_2 #add to loss
+
+    #Make the reps different term
+    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
+    cdiff1  = CdiffRand(z1norm,z1norm_two)
+    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
+    cdiff11 = CdiffSup(z1norm,z1norm_two)
+    cdiff1 = 0.5*cdiff1 + 0.5*cdiff11
+
+            #d terms                   #d^2 + d^2 terms
+    loss = Invar.sum() + lmb*(0.5*redun_reduc + 0.5*cdiff).sum() #Have to work out scaling constants (grid search?)
+
+    return loss
+```
 
 ``` python
 @patch
@@ -223,7 +255,7 @@ Patch in `before_epoch` callback - perform linear evaluation every 200th
 epoch (say):
 
 ``` python
-aug_pipelines_val=[get_linear_batch_augs(size=size,stats=cifar_stats,resize_scale=(0.3, 1.0))]
+aug_pipelines_val=[get_linear_batch_augs(size=size,stats=cifar_stats,resize=True,resize_scale=(0.3, 1.0))]
 main_linear_eval = Main_Linear_Eval(size=size,n_in=n_in,numfit=1,indim=1024, #size,n_in=3 (color channels),number of epochs to fit linear, and output dimension of encoder
                     dls_val=dls_val,dls_test=dls_test, #dls for training linear and evaluating linear
                     stats=cifar_stats,
@@ -275,18 +307,19 @@ test(model.training,True,cmp=operator.eq,cname='model not in training mode')
 aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                  bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
                                                  resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,
-                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.2, jitter_p=0.8, blur_p=1.0,sol_p=0.0,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.5, jitter_p=0.5, blur_p=0.5,sol_p=0.0,
                                                  stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
                                                  )
 
 aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=size,
                                                  bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
                                                  resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,sol_t=0.01,sol_a=0.01,
-                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.1,noise_p=0.2, jitter_p=0.8, blur_p=0.1,sol_p=0.2,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.5, jitter_p=0.5, blur_p=0.1,sol_p=0.2,
                                                  stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
                                                  )
 
 aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
+
 aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
 
 #If we are using a different `callback` to `BarlowTwins` then we can simply replace `BarlowTwins` with 
