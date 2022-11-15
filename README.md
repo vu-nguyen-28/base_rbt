@@ -64,42 +64,17 @@ def lf(self:BarlowTwins, pred,*yb): return 0.01*lf_bt(pred, self.I,self.lmb)
 Now we patch in our own definition of a loss function, using the tools
 from `base_lf`. First define it:
 
-``` python
-def lf_rbt(pred,seed,I,lmb):
-    
-    bs,nf = pred.size(0)//2,pred.size(1)
-
-    #All standard, from BT
-    z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
-    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
-    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
-    C = (z1norm.T @ z2norm) / bs 
-    cdiff = (C - I)**2
-
-    #Get either max corr(f(x),g(y)) {if indep=True} or max 0.5*corr(x,g(y)) + 0.5*corr(f(x),y), {if indep=False}
-    #where the max is over f and g. Please see base_lf for details
-    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff_2 = CdiffSup(z1norm,z2norm) #same shape as cdiff
-
-    #As above but f and g are now randomly sampled sinusoid. Please see base_lf for details
-    CdiffRand = Cdiff_Rand(seed=seed,std=0.1,K=2,indep=False)
-    cdiff_2_2 = CdiffRand(z1norm,z2norm) #same shape as cdiff
-
-    cdiff_2 = 0.5*cdiff_2_2 + 0.5*cdiff_2 #convex combination of rand and sup terms.
-
-    rr = cdiff_2*(1-I)*lmb #redundancy reduction term (scaled by lmb)
-
-    loss = (cdiff*I + rr).sum() #sum of redundancy reduction term and invariance term
-    torch.cuda.empty_cache()
-    return loss
-```
-
 This loss function has both a `random` component and a `sup` component.
 Next patch it in:
 
 ``` python
+# @patch
+# def lf(self:BarlowTwins, pred,*yb): return lf_rbt(pred,seed=self.seed,I=self.I,lmb=self.lmb)
+```
+
+``` python
 @patch
-def lf(self:BarlowTwins, pred,*yb): return lf_rbt(pred,seed=self.seed,I=self.I,lmb=self.lmb)
+def lf(self:BarlowTwins, pred,*yb): return lf_rat(pred,I=self.I,lmb=self.lmb)
 ```
 
 We now need an augmentation pipeline. Let’s also take a look at what it
@@ -108,7 +83,10 @@ looks like.
 ``` python
 n_in=1
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=1)
-model = create_barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
+
+#model = create_barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
+model = create_p2barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
+
 
 aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=28,
                     rotate=False,jitter=False,bw=False,blur=True,solar=False, #Whether to use aug or not
@@ -221,9 +199,24 @@ Step 2): Patch in definition of loss function, and also `after_epoch`
 (where we train linear classifier)
 
 ``` python
-#Using BT
+# #Using BT
+# @patch
+# def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
+```
+
+------------------------------------------------------------------------
+
+<a
+href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L267"
+target="_blank" style="float:right; font-size:smaller">source</a>
+
+### lf_rat
+
+>      lf_rat (pred, I, lmb)
+
+``` python
 @patch
-def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
+def lf(self:BarlowTwins, pred,*yb): return lf_rat(pred,I=self.I,lmb=self.lmb)
 ```
 
 Patch in `before_epoch` callback - perform linear evaluation every 200th
@@ -276,20 +269,22 @@ learner.
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=n_in)
 
 #If we are using a different model, this call will just look like `create_rat_model(...)`
-model = create_barlow_twins_model(fastai_encoder, hidden_size=ps,projection_size=ps,nlayers=3)
+model = create_p2barlow_twins_model(fastai_encoder, hidden_size=ps,projection_size=ps,nlayers=3)
 test(model.training,True,cmp=operator.eq,cname='model not in training mode')
 
 aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                  bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
-                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.025, jitter_s=1.0, blur_s=math.ceil(size/10)+1,
-                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.25, jitter_p=0.8, blur_p=1.0,sol_p=0.0,
-                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[])
+                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.2, jitter_p=0.8, blur_p=1.0,sol_p=0.0,
+                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
+                                                 )
 
 aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=size,
                                                  bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
-                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.025, jitter_s=1.0, blur_s=math.ceil(size/10)+1,sol_t=0.01,sol_a=0.01,
-                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.1,noise_p=0.1, jitter_p=0.8, blur_p=0.1,sol_p=0.2,
-                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[])
+                                                 resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,sol_t=0.01,sol_a=0.01,
+                                                 bw_p=0.2, flip_p=0.5,rotate_p=0.1,noise_p=0.2, jitter_p=0.8, blur_p=0.1,sol_p=0.2,
+                                                 stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
+                                                 )
 
 aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
 aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
@@ -302,13 +297,13 @@ learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=n_in,lmb=1/ps,pri
 Step 3): (Optional): View the augmentations:
 
 ``` python
-show_bt_batch(dls=dls,n_in=n_in,aug=aug_pipelines,n=2,print_augs=True)
+show_bt_batch(dls=dls,n_in=n_in,aug=aug_pipelines,n=20,print_augs=True)
 ```
 
 Step 4): Fit the learner:
 
 ``` python
-learn.fit(2)
+#learn.fit(2)
 ```
 
 Step 5): Setup for linear evaluation:

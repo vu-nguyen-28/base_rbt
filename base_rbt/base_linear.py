@@ -14,7 +14,6 @@ import torchvision.transforms as tvtfm
 
 from .helper import *
 
-
 # %% ../nbs/base_linear.ipynb 5
 #Batch level augmentations for linear classifier. At present time, just RandomResizedCrop and Normalization.
 def get_linear_batch_augs(size,resize=True,
@@ -29,7 +28,6 @@ def get_linear_batch_augs(size,resize=True,
     pipe = Pipeline(tfms, split_idx = 0)
     return pipe
 
-
 # %% ../nbs/base_linear.ipynb 7
 #Linear model 
 class LinearModel(Module):
@@ -43,7 +41,6 @@ class LinearModel(Module):
         self.L = nn.Linear(indim,outdim) 
         
     def forward(self,x):return self.L(self.encoder(x))
-
 
 # %% ../nbs/base_linear.ipynb 9
 class LinearBt(Callback):
@@ -89,7 +86,6 @@ class LinearBt(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-
 # %% ../nbs/base_linear.ipynb 17
 def show_linear_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
@@ -134,7 +130,8 @@ class Main_Linear_Eval:
         eval_model = self.Eval_Mode(self.model)
         N=len(self.dls_test.train)*self.dls_test.bs
         test_eq(N,len(self.dls_test.train_ds)) #check that batch size divides length of test set
-
+        
+        
         num_correct=0
         for x,y in self.dls_test.train:
 

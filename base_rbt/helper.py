@@ -3,31 +3,29 @@
 # %% auto 0
 __all__ = ['grad_on', 'test_grad_off', 'test_grad_on', 'grad_on_eval']
 
-# %% ../nbs/helper.ipynb 3
+# %% ../nbs/helper.ipynb 4
 from fastcore.test import *
 
-# %% ../nbs/helper.ipynb 4
+# %% ../nbs/helper.ipynb 5
 def grad_on(f,on=False):
     "Turn gradients on or off"
     for p in f.parameters():
         p.requires_grad=on
     return f
 
-# %% ../nbs/helper.ipynb 5
+# %% ../nbs/helper.ipynb 6
 def test_grad_off(model):
     "Test all gradients are off"
     for p in model.parameters():
         test_eq(p.requires_grad,False)
 
-
-# %% ../nbs/helper.ipynb 6
+# %% ../nbs/helper.ipynb 7
 def test_grad_on(model):
     "Test all gradients are on"
     for p in model.parameters():
         test_eq(p.requires_grad,True)
 
-
-# %% ../nbs/helper.ipynb 7
+# %% ../nbs/helper.ipynb 8
 def grad_on_eval(f,grad_on=True,eval_mode=False):
     "Turn gradients on or off; put into training or eval mode"
     

@@ -1,12 +1,12 @@
 Plan:
 
-1) Make nbs notebook of the linear-evaluation API, so that we can just use a "main" notebook in colab. 
+1) Make nbs notebook of the linear-evaluation API, so that we can just use a "main" notebook in colab. Done 
 2) Refactor model.ipynb and lf.ipynb a bit so that we have extensibility with respect to RBT: i.e. are we doing RBT or RAT?
-    are we applying random functions to encoder and sup to projector? Think through the plausible combinations that make sense, and make the API so that it is easy to do in "main"
+    are we applying random functions to encoder and sup to projector? Think through the plausible combinations that make sense, and make the API so that it is easy to do in "main". Mostly done. 
     
 Write some more tests for 1) and 2).
 
-3) At this point we can perform final training of BT on CIFAR10. Read papers before doing this, look at saving models etc. But at some point, you just have to jump in. Buy premium Colab credits at this point. 
+3) At this point we can perform final training of BT on CIFAR10. Read papers before doing this, look at saving models etc. But at some point, you just have to jump in. Buy premium Colab credits at this point. Started
 
 3) (Potentially concurrent with above): Do a kind of "linear-evaluation cross-validation" on MNIST. We can't do this on CIFAR10.
 

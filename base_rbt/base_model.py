@@ -57,21 +57,23 @@ class RandomGaussianBlur(RandTransform):
 #         return tfm(x)
     
 def get_BT_batch_augs(size,
-                    noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
+                    flip=True,crop=True,noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
                     resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
                     flip_p=0.5, rotate_p=0.3,noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
                     same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
     "Input batch augmentations implemented in tv+kornia+fastai"
+    
+    print('Export ran')
     tfms = []
 
     korniatfm.RandomHorizontalFlip.order = RandomResizedCrop.order-1
     
-    tfms += [tvtfm.RandomResizedCrop((size, size), scale=resize_scale, ratio=resize_ratio)]
+    if crop: tfms += [tvtfm.RandomResizedCrop((size, size), scale=resize_scale, ratio=resize_ratio)]
     
     #Unfortunately for some reason this doesn't work, so we can't apply "same_on_batch=False"
     #tfms += [korniatfm.RandomResizedCrop((size, size), scale=resize_scale, ratio=resize_ratio, same_on_batch=same_on_batch)]
     
-    tfms += [korniatfm.RandomHorizontalFlip(p=flip_p,same_on_batch=same_on_batch)]
+    if flip: tfms += [korniatfm.RandomHorizontalFlip(p=flip_p,same_on_batch=same_on_batch)]
 
     if rotate: tfms += [Rotate(max_deg=rotate_deg, p=rotate_p, batch=same_on_batch)]
 
@@ -102,7 +104,6 @@ def get_multi_aug_pipelines(size, **kwargs): return get_BT_batch_augs(size, **kw
 
 @delegates(get_multi_aug_pipelines)
 def get_barlow_twins_aug_pipelines(size,**kwargs): return get_multi_aug_pipelines(size=size,**kwargs)
-
 
 
 # %% ../nbs/base_model.ipynb 8
@@ -266,11 +267,11 @@ def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
 # %% ../nbs/base_model.ipynb 12
 def lf_rat(pred,I,lmb):
     
-    bs,nf = pred.size(0)//2,pred.size(1)
+    bs,nf = bs,nf = pred[0].size(0)//2,pred[0].size(1)
     
     pred1=pred[0]
-    pred2=pred[0]
-
+    pred2=pred[1]
+    
     z1, z2 = pred1[:bs],pred1[bs:] #so z1 is bs*projection_size, likewise for z2
 
     #Used to encode, primarily invariance
@@ -294,16 +295,15 @@ def lf_rat(pred,I,lmb):
 
     #Make the reps different term
     CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
-    cdiff1  = CdiffRand(z1norm,z1norm_two)
+    cdiff  = CdiffRand(z1norm,z1norm_two)
     CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff11 = CdiffSup(z1norm,z1norm_two)
-    cdiff1 = 0.5*cdiff1 + 0.5*cdiff11
+    cdiff_2 = CdiffSup(z1norm,z1norm_two)
+    cdiff = 0.5*cdiff + 0.5*cdiff_2
 
             #d terms                   #d^2 + d^2 terms
-    loss = Invar.sum() + self.lmb*(0.5*redun_reduc + 0.5*cdiff).sum() #Have to work out scaling constants (grid search?)
+    loss = Invar.sum() + lmb*(0.5*redun_reduc + 0.5*cdiff).sum() #Have to work out scaling constants (grid search?)
 
     return loss
-
 
 # %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
