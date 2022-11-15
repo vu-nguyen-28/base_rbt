@@ -115,6 +115,7 @@ class Cdiff_Sup:
         self.qs=qs
         self.inner_steps=inner_steps
         self.indep=indep
+        self.mask=mask
         if self.mask==False: self.max_corr = Max_Corr(qs=qs)
         else: self.max_corr = Max_Corr_Mask(qs=qs)
         if default_device().type == 'cuda':
