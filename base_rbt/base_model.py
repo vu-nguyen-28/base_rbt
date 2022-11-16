@@ -32,7 +32,7 @@ class RandomGaussianBlur(RandTransform):
      
         #Default for ImageNet from BYOL / BT papers
         if self.s1 is None:
-            self.s1 = np.random.uniform(self.blur_r[0],sblur_r[1])
+            self.s1 = np.random.uniform(self.blur_r[0],self.blur_r[1])
 
             
         tfm = korniatfm.RandomGaussianBlur(kernel_size=s,sigma=(self.s1,self.s1),same_on_batch=self.same_on_batch,p=self.prob)
