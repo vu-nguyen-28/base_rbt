@@ -3,7 +3,8 @@
 # %% auto 0
 __all__ = ['RandomGaussianBlur', 'get_BT_batch_augs', 'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines',
            'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'P2BarlowTwinsModel',
-           'create_p2barlow_twins_model', 'lf_rat', 'lf_bt', 'show_bt_batch']
+           'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'lf_rat', 'lf_bt',
+           'show_bt_batch']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -13,7 +14,6 @@ from self_supervised.augmentations import *
 from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
-
 from .helper import *
 
 # %% ../nbs/base_model.ipynb 6
@@ -214,56 +214,41 @@ def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
     
     return P2BarlowTwinsModel(encoder, projector,projector2)
 
-#Actually think the `Callback` is the same as for BT/RBT
 
 
-# class BarlowTwinsP2(Callback):
-#     order,run_valid = 9,True
-#     def __init__(self, aug_pipelines,n_in, lmb=5e-3, print_augs=False):
-#         assert_aug_pipelines(aug_pipelines)
-#         self.aug1, self.aug2 = aug_pipelines
-#         if print_augs: print(self.aug1), print(self.aug2)
-#         store_attr('lmb')
-#         self.n_in=n_in
-#         self.acc_dict = {}
+# %% ../nbs/base_model.ipynb 10
+#We want access to both representation and projection
+
+#TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
+#sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
+class P3BarlowTwinsModel(Module):
+    """An encoder followed by a projector
+    """
+    def __init__(self,encoder,projector):
+        self.encoder = encoder
+        self.projector = projector
         
-#     def before_fit(self): 
-#         self.learn.loss_func = self.lf
-#         nf = self.learn.model.projector[-1].out_features
-#         self.I = torch.eye(nf).to(self.dls.device)
+    def forward(self,x): 
+        tem = self.encoder(x)
+        return tem,self.projector(tem)
+    
+    def __str__(self):
+        return 'forward returns tuple of (encoder(x),projector(encoder(x)))'
 
-#     def update_seed(self):
-#         pass
+def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
+    "Create Barlow Twins model"
+    n_in  = in_channels(encoder)
+    with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
+    
+    projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
+    apply_init(projector)
+    
+ 
+    return P3BarlowTwinsModel(encoder, projector)
 
 
-#     def before_epoch(self):
-#         pass
-  
-#     def before_batch(self):
-        
-#         #TODO: Make this nicer (possibly can load in data as TensorImage(BW) or something?)
-#         #This is a bit of a hack. Can make this more elegant later. But in new version of FastAI
-#         #seems we need to compute TensorImage(BW) here, and depends on whether color or not, i.e. n_in.
-#         if self.n_in == 1:
-#             xi,xj = self.aug1(TensorImageBW(self.x)), self.aug2(TensorImageBW(self.x))
-                                    
-#         elif self.n_in == 3:
-#             xi,xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
 
-#         self.learn.xb = (torch.cat([xi, xj]),)
-        
-#     @torch.no_grad()
-#     def show(self, n=1): 
-#         bs = self.learn.x.size(0)//2
-#         x1,x2  = self.learn.x[:bs], self.learn.x[bs:]
-#         idxs = np.random.choice(range(bs),n,False)
-#         x1 = self.aug1.decode(x1[idxs].to('cpu').clone()).clamp(0,1)
-#         x2 = self.aug2.decode(x2[idxs].to('cpu').clone()).clamp(0,1)
-#         images = []
-#         for i in range(n): images += [x1[i],x2[i]]
-#         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
-
-# %% ../nbs/base_model.ipynb 12
+# %% ../nbs/base_model.ipynb 13
 def lf_rat(pred,I,lmb):
     
     bs,nf = bs,nf = pred[0].size(0)//2,pred[0].size(1)
@@ -304,7 +289,7 @@ def lf_rat(pred,I,lmb):
 
     return loss
 
-# %% ../nbs/base_model.ipynb 14
+# %% ../nbs/base_model.ipynb 15
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -318,7 +303,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 21
+# %% ../nbs/base_model.ipynb 22
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
     
