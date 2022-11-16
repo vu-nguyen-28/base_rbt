@@ -21,7 +21,7 @@ from .helper import *
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
     order = 11
-    def __init__(self, p=1.0,prob=0.5, s=(8,32),s1=None, same_on_batch=False, **kwargs): 
+    def __init__(self, p=1.0,prob=0.5, s=(8,32),s1=None,blur_r=(0.1,2), same_on_batch=False, **kwargs): 
         store_attr()
         super().__init__(p=p, **kwargs)
 
@@ -32,7 +32,7 @@ class RandomGaussianBlur(RandTransform):
      
         #Default for ImageNet from BYOL / BT papers
         if self.s1 is None:
-            self.s1 = np.random.uniform(0.1,2)
+            self.s1 = np.random.uniform(self.blur_r[0],sblur_r[1])
 
             
         tfm = korniatfm.RandomGaussianBlur(kernel_size=s,sigma=(self.s1,self.s1),same_on_batch=self.same_on_batch,p=self.prob)
@@ -58,7 +58,7 @@ class RandomGaussianBlur(RandTransform):
     
 def get_BT_batch_augs(size,
                     flip=True,crop=True,noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
-                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
+                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),blur_r=(0.1,2),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
                     flip_p=0.5, rotate_p=0.3,noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
                     same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
     "Input batch augmentations implemented in tv+kornia+fastai"
@@ -82,7 +82,7 @@ def get_BT_batch_augs(size,
     if bw:     tfms += [korniatfm.RandomGrayscale(p=bw_p, same_on_batch=same_on_batch)]
         
 
-    if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,s1=s1, same_on_batch=same_on_batch)]
+    if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,s1=s1,blur_r=blur_r, same_on_batch=same_on_batch)]
 
     korniatfm.RandomSolarize.order = RandomGaussianBlur.order + 1 #we want to apply solarization after RandomGaussianBlur
     

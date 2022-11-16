@@ -109,6 +109,11 @@ learn('before_batch')
 axes = learn.barlow_twins.show(n=3)
 ```
 
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
+    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
+
+![](index_files/figure-gfm/cell-9-output-2.png)
+
 Finally,let’s train RBT; We construct an encoder and a learner, then fit
 it.
 
@@ -194,6 +199,17 @@ dls_test = ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs_val,
 
 set(labels) #Check that the labels make sense
 ```
+
+    {'airplane',
+     'automobile',
+     'bird',
+     'cat',
+     'deer',
+     'dog',
+     'frog',
+     'horse',
+     'ship',
+     'truck'}
 
 Step 2): Patch in definition of loss function, and also `after_epoch`
 (where we train linear classifier)

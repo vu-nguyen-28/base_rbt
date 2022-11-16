@@ -92,6 +92,7 @@ class Max_Corr_Mask(nn.Module):
         super().__init__()
         self.qs=qs
         self.mask = torch.ones(qs,qs) * (torch.ones(qs,qs)-torch.eye(qs))
+        if default_device().type == 'cuda': self.mask=self.mask.cuda()
         
         self.fc1 = nn.Linear(qs,qs,bias=False)
         self.fc1.weight.register_hook(lambda grad: grad*self.mask)
