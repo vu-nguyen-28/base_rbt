@@ -64,17 +64,43 @@ def lf(self:BarlowTwins, pred,*yb): return 0.01*lf_bt(pred, self.I,self.lmb)
 Now we patch in our own definition of a loss function, using the tools
 from `base_lf`. First define it:
 
+``` python
+def lf_rbt(pred,seed,I,lmb):
+    
+    bs,nf = pred.size(0)//2,pred.size(1)
+
+    #All standard, from BT
+    z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
+    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
+    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
+    C = (z1norm.T @ z2norm) / bs 
+    cdiff = (C - I)**2
+
+    #Get either max corr(f(x),g(y)) {if indep=True} or max 0.5*corr(x,g(y)) + 0.5*corr(f(x),y), {if indep=False}
+    #where the max is over f and g. Please see base_lf for details
+    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=10,indep=False,mask=True)
+    cdiff_2 = CdiffSup(z1norm,z2norm) #same shape as cdiff
+
+    #As above but f and g are now randomly sampled sinusoid. Please see base_lf for details
+    CdiffRand = Cdiff_Rand(seed=seed,std=0.1,K=10,indep=True)
+    cdiff_2_2 = CdiffRand(z1norm,z2norm) #same shape as cdiff
+
+    cdiff_2 = 0.5*cdiff_2_2 + 0.5*cdiff_2 #convex combination of rand and sup terms.
+
+    rr = cdiff_2*(1-I)*lmb #redundancy reduction term (scaled by lmb)
+
+    loss = (cdiff*I + rr).sum() #sum of redundancy reduction term and invariance term
+    torch.cuda.empty_cache()
+    return loss
+```
+
 This loss function has both a `random` component and a `sup` component.
 Next patch it in:
 
 ``` python
-# @patch
-# def lf(self:BarlowTwins, pred,*yb): return lf_rbt(pred,seed=self.seed,I=self.I,lmb=self.lmb)
-```
-
-``` python
+# #Using RBT
 @patch
-def lf(self:BarlowTwins, pred,*yb): return lf_rat(pred,I=self.I,lmb=self.lmb)
+def lf(self:BarlowTwins, pred,*yb): return lf_rbt(pred,seed=self.seed,I=self.I,lmb=self.lmb)
 ```
 
 We now need an augmentation pipeline. Let’s also take a look at what it
@@ -85,7 +111,7 @@ n_in=1
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=1)
 
 #model = create_barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
-model = create_p2barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
+model = create_barlow_twins_model(fastai_encoder, hidden_size=10,projection_size=10)# projection_size=1024)
 
 
 aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=28,
@@ -103,16 +129,7 @@ aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=28,
 aug_pipelines = [aug_pipelines_1,aug_pipelines_1]
 tem = BarlowTwins(aug_pipelines,n_in=n_in,print_augs=True)
 learn = Learner(dls,model, cbs=[tem])
-b = dls.one_batch()
-learn._split(b)
-learn('before_batch')
-axes = learn.barlow_twins.show(n=3)
 ```
-
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
-    Pipeline: RandomResizedCrop -> RandomHorizontalFlip -> RandomGaussianNoise -> RandomGaussianBlur -- {'p': 1.0, 'prob': 0.5, 's': 11, 's1': 3, 'same_on_batch': False} -> Normalize -- {'mean': tensor([[[[0.1310]]]]), 'std': tensor([[[[0.3080]]]]), 'axes': (0, 2, 3)}
-
-![](index_files/figure-gfm/cell-9-output-2.png)
 
 Finally,let’s train RBT; We construct an encoder and a learner, then fit
 it.
@@ -124,7 +141,7 @@ hs=ps #hidden size in mlp at the end; typically just = ps.
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=1) #create the encoder
 model = create_barlow_twins_model(fastai_encoder, hidden_size=hs,projection_size=ps)#plonk the projector on the end of the encoder
 learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=1, print_augs=False)]) #build the learner
-#learn.fit(1) #train model, i.e. weights of encoder and projector.
+learn.fit(1) #train model, i.e. weights of encoder and projector.
 ```
 
 Once we have trained the `fastai_encoder` can evaluate in various ways.
@@ -200,17 +217,6 @@ dls_test = ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs_val,
 set(labels) #Check that the labels make sense
 ```
 
-    {'airplane',
-     'automobile',
-     'bird',
-     'cat',
-     'deer',
-     'dog',
-     'frog',
-     'horse',
-     'ship',
-     'truck'}
-
 Step 2): Patch in definition of loss function, and also `after_epoch`
 (where we train linear classifier)
 
@@ -218,53 +224,6 @@ Step 2): Patch in definition of loss function, and also `after_epoch`
 # #Using BT
 # @patch
 # def lf(self:BarlowTwins, pred,*yb): return lf_bt(pred, self.I,self.lmb)
-```
-
-``` python
-def lf_rat(pred,I,lmb):
-    
-    bs,nf = bs,nf = pred[0].size(0)//2,pred[0].size(1)
-    
-    pred1=pred[0]
-    pred2=pred[1]
-    
-    z1, z2 = pred1[:bs],pred1[bs:] #so z1 is bs*projection_size, likewise for z2
-
-    #Used to encode, primarily invariance
-    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
-    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
-
-    #Used to encode, primarily redundancy-reduction
-    z1_two,z2_two = pred2[:bs],pred2[bs:]
-    z1norm_two = (z1_two - z1_two.mean(0)) / z1_two.std(0, unbiased=False)
-    z2norm_two = (z2_two - z2_two.mean(0)) / z2_two.std(0, unbiased=False)
-
-    #The invariance term
-    Invar = (z1norm-z2norm).pow(2) #add to loss (there are d-terms)
-
-    #The redundancy reduction term
-    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
-    cdiff = CdiffRand(z1norm_two,z2norm_two)
-    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff_2 = CdiffSup(z1norm_two,z2norm_two)
-    redun_reduc = 0.5*cdiff + 0.5*cdiff_2 #add to loss
-
-    #Make the reps different term
-    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
-    cdiff1  = CdiffRand(z1norm,z1norm_two)
-    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff11 = CdiffSup(z1norm,z1norm_two)
-    cdiff1 = 0.5*cdiff1 + 0.5*cdiff11
-
-            #d terms                   #d^2 + d^2 terms
-    loss = Invar.sum() + lmb*(0.5*redun_reduc + 0.5*cdiff).sum() #Have to work out scaling constants (grid search?)
-
-    return loss
-```
-
-``` python
-@patch
-def lf(self:BarlowTwins, pred,*yb): return lf_rat(pred,I=self.I,lmb=self.lmb)
 ```
 
 Patch in `before_epoch` callback - perform linear evaluation every 200th
@@ -283,7 +242,6 @@ main_linear_eval = Main_Linear_Eval(size=size,n_in=n_in,numfit=1,indim=1024, #si
 ``` python
 @patch
 def after_epoch(self:BarlowTwins):
-
     #Put in eval mode and turn gradients off
     self.learn.eval()
     grad_on(self.learn.model,on=False)
@@ -317,7 +275,7 @@ learner.
 fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=n_in)
 
 #If we are using a different model, this call will just look like `create_rat_model(...)`
-model = create_p2barlow_twins_model(fastai_encoder, hidden_size=ps,projection_size=ps,nlayers=3)
+model = create_barlow_twins_model(fastai_encoder, hidden_size=ps,projection_size=ps,nlayers=3)
 test(model.training,True,cmp=operator.eq,cname='model not in training mode')
 
 aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
@@ -352,7 +310,7 @@ show_bt_batch(dls=dls,n_in=n_in,aug=aug_pipelines,n=20,print_augs=True)
 Step 4): Fit the learner:
 
 ``` python
-#learn.fit(2)
+learn.fit(1)
 ```
 
 Step 5): Setup for linear evaluation:
@@ -382,4 +340,57 @@ normalization)
 ``` python
 acc=main_linear_eval()
 acc
+```
+
+Here is how to use new p3:
+
+``` python
+def lf_rbt(pred,seed,I,lmb):
+
+    pred_enc = pred[0]
+    pred = pred[1]
+    
+    bs,nf = pred.size(0)//2,pred.size(1)
+
+    #All standard, from BT
+    z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
+    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
+    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
+    
+    z1_enc, z2_enc = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
+    z1norm_enc = (z1_enc - z1_enc.mean(0)) / z1_enc.std(0, unbiased=False)
+    z2norm_enc = (z2_enc - z2_enc.mean(0)) / z2_enc.std(0, unbiased=False)
+    
+    
+    C = (z1norm.T @ z2norm) / bs 
+    cdiff = (C - I)**2
+
+    #Get either max corr(f(x),g(y)) {if indep=True} or max 0.5*corr(x,g(y)) + 0.5*corr(f(x),y), {if indep=False}
+    #where the max is over f and g. Please see base_lf for details
+    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=10,indep=False,mask=True)
+    cdiff_2 = CdiffSup(z1norm_enc,z2norm_enc) #same shape as cdiff
+
+    #As above but f and g are now randomly sampled sinusoid. Please see base_lf for details
+    CdiffRand = Cdiff_Rand(seed=seed,std=0.1,K=10,indep=True)
+    cdiff_2_2 = CdiffRand(z1norm,z2norm) #same shape as cdiff
+
+    cdiff_2 = 0.5*cdiff_2_2 + 0.5*cdiff_2 #convex combination of rand and sup terms.
+
+    rr = cdiff_2*(1-I)*lmb #redundancy reduction term (scaled by lmb)
+
+    loss = (cdiff*I + rr).sum() #sum of redundancy reduction term and invariance term
+    torch.cuda.empty_cache()
+    return loss
+```
+
+``` python
+fastai_encoder = create_fastai_encoder(xresnet18(),pretrained=False,n_in=n_in)
+
+#If we are using a different model, this call will just look like `create_rat_model(...)`
+model = create_p3barlow_twins_model(fastai_encoder, hidden_size=ps,projection_size=ps,nlayers=3)
+learn = Learner(dls,model, cbs=[BarlowTwins(aug_pipelines,n_in=n_in,lmb=1/ps,print_augs=False)])
+```
+
+``` python
+learn.fit(1)
 ```

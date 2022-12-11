@@ -3,8 +3,8 @@
 # %% auto 0
 __all__ = ['RandomGaussianBlur', 'get_BT_batch_augs', 'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines',
            'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'P2BarlowTwinsModel',
-           'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'lf_rat', 'lf_bt',
-           'show_bt_batch']
+           'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'P4BarlowTwinsModel',
+           'create_p4barlow_twins_model', 'lf_bt', 'show_bt_batch']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -21,21 +21,32 @@ from .helper import *
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
     order = 11
-    def __init__(self, p=1.0,prob=0.5, s=(8,32),s1=None,blur_r=(0.1,2), same_on_batch=False, **kwargs): 
+    def __init__(self, 
+                 p=1.0, #debugging (bug in libraries implementation)
+                 prob=0.5,#the real probability
+                 s=(8,32), #kernel
+                 sig=None, #sig_val is either manually input OR
+                 blur_r=(0.1,2),#is randomly chosen from uniform with these bounds
+                 same_on_batch=False, 
+                 **kwargs): 
+        
         store_attr()
         super().__init__(p=p, **kwargs)
 
     def encodes(self, x:TensorImage):
-
+        
         if isinstance(self.s, int):   s = (self.s,self.s)
         elif isinstance(self.s, tuple) or isinstance(self.s, list): s=self.s
      
         #Default for ImageNet from BYOL / BT papers
-        if self.s1 is None:
-            self.s1 = np.random.uniform(self.blur_r[0],self.blur_r[1])
-
+        if self.sig is None:
+            sig_val = np.random.uniform(self.blur_r[0],self.blur_r[1])
+        
+        else:
+            sig_val = self.sig
             
-        tfm = korniatfm.RandomGaussianBlur(kernel_size=s,sigma=(self.s1,self.s1),same_on_batch=self.same_on_batch,p=self.prob)
+
+        tfm = korniatfm.RandomGaussianBlur(kernel_size=s,sigma=(sig_val,sig_val),same_on_batch=self.same_on_batch,p=self.prob)
         return tfm(x)
 
 #Delete later: leaving for backward compatibility for now
@@ -58,7 +69,7 @@ class RandomGaussianBlur(RandTransform):
     
 def get_BT_batch_augs(size,
                     flip=True,crop=True,noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
-                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),blur_r=(0.1,2),s1=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
+                    resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),blur_r=(0.1,2),blur_sig=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
                     flip_p=0.5, rotate_p=0.3,noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
                     same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
     "Input batch augmentations implemented in tv+kornia+fastai"
@@ -82,7 +93,8 @@ def get_BT_batch_augs(size,
     if bw:     tfms += [korniatfm.RandomGrayscale(p=bw_p, same_on_batch=same_on_batch)]
         
 
-    if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,s1=s1,blur_r=blur_r, same_on_batch=same_on_batch)]
+    #sig will usually be None
+    if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,sig=blur_sig,blur_r=blur_r, same_on_batch=same_on_batch)]
 
     korniatfm.RandomSolarize.order = RandomGaussianBlur.order + 1 #we want to apply solarization after RandomGaussianBlur
     
@@ -162,9 +174,13 @@ class BarlowTwins(Callback):
         #This is a bit of a hack. Can make this more elegant later. But in new version of FastAI
         #seems we need to compute TensorImage(BW) here, and depends on whether color or not, i.e. n_in.
         if self.n_in == 1:
+
             xi,xj = self.aug1(TensorImageBW(self.x)), self.aug2(TensorImageBW(self.x))
+            
+            #print(xi.shape)
                                     
         elif self.n_in == 3:
+            
             xi,xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
 
         self.learn.xb = (torch.cat([xi, xj]),)
@@ -215,7 +231,6 @@ def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
     return P2BarlowTwinsModel(encoder, projector,projector2)
 
 
-
 # %% ../nbs/base_model.ipynb 10
 #We want access to both representation and projection
 
@@ -248,48 +263,38 @@ def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
 
 
 
-# %% ../nbs/base_model.ipynb 13
-def lf_rat(pred,I,lmb):
+# %% ../nbs/base_model.ipynb 11
+class P4BarlowTwinsModel(Module):
+    """An encoder followed by a projector
+    """
+    def __init__(self,encoder,encoder2,projector,projector2):
+        self.encoder = encoder
+        self.encoder2 = encoder2
+        self.projector = projector
+        self.projector2 = projector2
+        
+    def forward(self,x):
+        
+        #If we have multiple GPUs can take advantage of it here...
+        tem,tem2 = self.encoder(x),self.encoder2(x)
+        return self.projector(tem),self.projector2(tem2)
+
+def create_p4barlow_twins_model(encoder,encoder2, hidden_size=256, projection_size=128, bn=True, nlayers=3):
+    "Create Barlow Twins model"
+    n_in  = in_channels(encoder)
+    with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
     
-    bs,nf = bs,nf = pred[0].size(0)//2,pred[0].size(1)
+    projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
+    apply_init(projector)
     
-    pred1=pred[0]
-    pred2=pred[1]
+    projector2 = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
+    apply_init(projector2)
     
-    z1, z2 = pred1[:bs],pred1[bs:] #so z1 is bs*projection_size, likewise for z2
+    
+    return P4BarlowTwinsModel(encoder,encoder2, projector,projector2)
 
-    #Used to encode, primarily invariance
-    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
-    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
 
-    #Used to encode, primarily redundancy-reduction
-    z1_two,z2_two = pred2[:bs],pred2[bs:]
-    z1norm_two = (z1_two - z1_two.mean(0)) / z1_two.std(0, unbiased=False)
-    z2norm_two = (z2_two - z2_two.mean(0)) / z2_two.std(0, unbiased=False)
-
-    #The invariance term
-    Invar = (z1norm-z2norm).pow(2) #add to loss (there are d-terms)
-
-    #The redundancy reduction term
-    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
-    cdiff = CdiffRand(z1norm_two,z2norm_two)
-    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff_2 = CdiffSup(z1norm_two,z2norm_two)
-    redun_reduc = 0.5*cdiff + 0.5*cdiff_2 #add to loss
-
-    #Make the reps different term
-    CdiffRand = Cdiff_Rand(seed=0,std=0.1,K=2,indep=True)
-    cdiff  = CdiffRand(z1norm,z1norm_two)
-    CdiffSup = Cdiff_Sup(I=I,qs=ps,inner_steps=5,indep=False)
-    cdiff_2 = CdiffSup(z1norm,z1norm_two)
-    cdiff = 0.5*cdiff + 0.5*cdiff_2
-
-            #d terms                   #d^2 + d^2 terms
-    loss = Invar.sum() + lmb*(0.5*redun_reduc + 0.5*cdiff).sum() #Have to work out scaling constants (grid search?)
-
-    return loss
-
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -303,13 +308,12 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 17
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
-    
+        
     learn = Learner(dls,model=None, cbs=[BarlowTwins(aug,n_in=n_in,print_augs=print_augs)])
     b = dls.one_batch()
     learn._split(b)
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
-    
