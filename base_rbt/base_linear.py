@@ -38,14 +38,17 @@ class LinearModel(Module):
                  outdim=10, #number of classes
                 ):
         self.encoder=encoder
-        self.L = nn.Linear(indim,outdim) 
+        self.L = nn.Linear(indim,outdim)
+        
+        if torch.cuda.is_available():
+            self.L.to('cuda')
         
     def forward(self,x):return self.L(self.encoder(x))
 
 # %% ../nbs/base_linear.ipynb 9
 class LinearBt(Callback):
     order,run_valid = 9,True
-    def __init__(self,aug_pipelines,n_in, show_batch=False, print_augs=False):
+    def __init__(self,aug_pipelines,n_in, show_batch=False, print_augs=False,data=None):
         assert_aug_pipelines(aug_pipelines)
         self.aug1= aug_pipelines[0]
         self.aug2=Pipeline( split_idx = 0) #empty pipeline
@@ -53,6 +56,8 @@ class LinearBt(Callback):
         self.n_in=n_in
         self._show_batch=show_batch
         self.criterion = nn.CrossEntropyLoss()
+        
+        self.data=data #if data is just e.g. 20 samples then don't bother re-loading each time
         
     def before_fit(self): 
         self.learn.loss_func = self.lf
@@ -97,7 +102,7 @@ def show_linear_batch(dls,n_in,aug,n=2,print_augs=True):
     axes = learn.linear_bt.show(n=n)
     
 
-# %% ../nbs/base_linear.ipynb 23
+# %% ../nbs/base_linear.ipynb 30
 #Given validation set, test set, encoder, etc return accuracy via __call__
 class Main_Linear_Eval:
     

@@ -92,7 +92,6 @@ def get_BT_batch_augs(size,
     
     if bw:     tfms += [korniatfm.RandomGrayscale(p=bw_p, same_on_batch=same_on_batch)]
         
-
     #sig will usually be None
     if blur:   tfms += [RandomGaussianBlur(prob=blur_p, s=blur_s,sig=blur_sig,blur_r=blur_r, same_on_batch=same_on_batch)]
 
