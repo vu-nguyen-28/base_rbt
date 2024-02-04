@@ -105,19 +105,19 @@ def show_linear_batch(dls,n_in,aug,n=2,print_augs=True):
 # %% ../nbs/base_linear.ipynb 30
 #Given validation set, test set, encoder, etc return accuracy via __call__
 class Main_Linear_Eval:
-    
-    def __init__(self,size,n_in,indim,numfit, #size e.g. 32, n_in e.g. 1 or 3, indim  is encoder output dim, numfit number of epochs training 
+
+    def __init__(self,size,n_in,indim,numfit, #size e.g. 32, n_in e.g. 1 or 3, indim  is encoder output dim, numfit number of epochs training
                  dls_val,dls_test, #dls_val for training linear, dls_test for evaluation
                  stats, #e.g. cifar_stats
                  aug_pipelines_val, #generally simple (crop and normalizatiom)
                  encoder
                 ):
-    
+
         store_attr()
         self.encoder=encoder
         if self.encoder is not None:
             self.model = LinearModel(encoder=self.encoder,indim=indim)
-     
+
     #Use this guy to put the model into evaluation mode
     def Eval_Mode(self,_model):
 
@@ -128,35 +128,37 @@ class Main_Linear_Eval:
             return _model(aug_pipelines(x))
 
         return call
-        
+
     #Evaluate linear model on dls_test
     def eval_linear(self):
 
         eval_model = self.Eval_Mode(self.model)
         N=len(self.dls_test.train)*self.dls_test.bs
         test_eq(N,len(self.dls_test.train_ds)) #check that batch size divides length of test set
-        
-        
+
+
         num_correct=0
         for x,y in self.dls_test.train:
 
-            ypred=eval_model(x) 
-            correct = (torch.argmax(ypred,dim=1) == y).type(torch.FloatTensor)
+            y = TensorImage(y) #Rather than TensorCategory
+            ypred=eval_model(x)
+
+            correct = (torch.argmax(ypred, dim=1) == y)
             num_correct += correct.sum()
 
         accuracy = num_correct/N
         return accuracy.item()
-        
-        
+
+
     def __call__(self):
-        
-        #train linear classifier on dls_eval. Requires inputs: encoder, aug_pipeline, dls, 
+
+        #train linear classifier on dls_eval. Requires inputs: encoder, aug_pipeline, dls,
         bt = LinearBt(self.aug_pipelines_val,show_batch=True,n_in=self.n_in,print_augs=False)
         learn = Learner(self.dls_val,self.model, cbs=[bt])
         learn.fit(self.numfit)
-        
+
         #eval linear classifier
         acc = self.eval_linear()
-        
+
         return acc
     
