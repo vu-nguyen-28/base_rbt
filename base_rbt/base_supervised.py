@@ -286,13 +286,21 @@ class SupervisedLearning:
         - learn: The Learner object.
         """
         # Setup the model: encoder + head
-        model = LM(encoder=self.encoder, enc_dim=self.enc_dim, numout=len(dls_train.vocab))
+        model = LM(encoder=self.encoder, enc_dim=self.enc_dim, numout=len(self.dls_train.vocab))
 
         # Setup the learner with callbacks and metrics
         bt = LinearBt(aug_pipelines=self.aug_pipelines_supervised, show_batch=True, n_in=self.n_in, print_augs=True)
         learn = Learner(self.dls_train, model, splitter=encoder_head_splitter,cbs=[bt],wd=0, metrics=accuracy)
 
         return learn
+    
+    def supervised_learning(self,epochs:int=1):
+
+        test_grad_on(self.learn.model.encoder)
+        test_grad_on(self.learn.model.head)
+        lrs = self.learn.lr_find()
+        self.learn.fit_one_cycle(epochs, lrs.valley)
+        return self.learn.model
     
     def linear_evaluation(self,epochs:int=1):
 
