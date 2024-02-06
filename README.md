@@ -13,10 +13,9 @@
 After installing, import like this:
 
 ``` python
-from base_rbt.base_model import *
-from base_rbt.base_lf import *
-from base_rbt.base_linear import *
-from base_rbt.helper import *
+from base_rbt.all import *
 ```
+
+    ModuleNotFoundError: No module named 'base_rbt.base_linear'
 
 We also need some other libraries:

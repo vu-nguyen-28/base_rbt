@@ -142,13 +142,13 @@ def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=
 
 class BarlowTwins(Callback):
     order,run_valid = 9,True
-    def __init__(self, aug_pipelines,n_in, lmb=5e-3, print_augs=False):
+    def __init__(self, aug_pipelines,n_in, model_type='barlow_twins',lmb=5e-3, print_augs=False):
         assert_aug_pipelines(aug_pipelines)
         self.aug1, self.aug2 = aug_pipelines
         if print_augs: print(self.aug1), print(self.aug2)
         store_attr('lmb')
         self.n_in=n_in
-        
+        self.model_type = model_type
         self.index=-1 #Gets updated after each batch
         self.seed = np.random.randint(0,10000) #gets updated after each batch
         self.acc_dict = {}
