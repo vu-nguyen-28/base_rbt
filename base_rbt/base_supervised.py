@@ -287,6 +287,8 @@ class SupervisedLearning:
         """
         # Setup the model: encoder + head
         model = LM(encoder=self.encoder, enc_dim=self.enc_dim, numout=len(self.dls_train.vocab))
+        if torch.cuda.is_available():
+            model.to('cuda')
 
         # Setup the learner with callbacks and metrics
         bt = LinearBt(aug_pipelines=self.aug_pipelines_supervised, show_batch=True, n_in=self.n_in, print_augs=True)
