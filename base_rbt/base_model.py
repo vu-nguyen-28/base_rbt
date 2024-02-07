@@ -4,7 +4,7 @@
 __all__ = ['RandomGaussianBlur', 'get_BT_batch_augs', 'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines',
            'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'P2BarlowTwinsModel',
            'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'P4BarlowTwinsModel',
-           'create_p4barlow_twins_model', 'lf_bt', 'lf_rbt_sparse', 'my_splitter_bt', 'show_bt_batch']
+           'create_p4barlow_twins_model', 'lf_bt', 'lf_rbt_sparse', 'my_splitter_bt', 'show_bt_batch', 'TrainBT']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -360,3 +360,61 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn._split(b)
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
+
+# %% ../nbs/base_model.ipynb 20
+class TrainBT:
+    "Train model using BT."
+
+    def __init__(self,
+                 model,#An encoder followed by a projector
+                 hp_dict):
+
+
+        self.model = model
+        
+        for key, value in hp_dict.items():
+            setattr(self, key, value)
+        
+        self.learn = self.setup_learn()
+
+    
+    def setup_learn(self):
+        """
+        Sets up the learner with the model, callbacks, and metrics.
+
+        Returns:
+        - learn: The Learner object.
+        """
+      
+        if torch.cuda.is_available():
+            self.model.to('cuda')
+  
+        learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=1.5*1e-6, cbs=[BarlowTwins(self.aug_pipelines,n_in=self.n_in,lmb=self.lmb,print_augs=False,model_type=self.model_type)])
+
+        return learn
+    
+    def bt_transfer_learning(self,freeze_epochs:int=1,epochs:int=1):
+        """If the encoder is alreaady pretrained, we can do transfer learning.
+            Freeze encoder, train projector for a few epochs, then unfreeze and train all. 
+        """
+
+        self.learn.freeze()
+        test_grad_off(self.learn.encoder)
+        self.learn.fit(freeze_epochs)
+        self.learn.unfreeze()
+        test_grad_on(self.learn.model)
+        lrs = self.learn.lr_find()
+        self.learn.fit_one_cycle(epochs, lrs.valley)
+
+        return self.learn.model
+
+    def bt_learning(self,epochs:int=1):
+        """If the encoder is not pretrained, we can do normal training.
+        """
+        
+        lrs = self.learn.lr_find()
+        self.learn.fit_one_cycle(epochs, lrs.valley)
+
+        return self.learn.model
+    
+
