@@ -4,7 +4,7 @@
 __all__ = ['RandomGaussianBlur', 'get_BT_batch_augs', 'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines',
            'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'P2BarlowTwinsModel',
            'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'P4BarlowTwinsModel',
-           'create_p4barlow_twins_model', 'lf_bt', 'show_bt_batch']
+           'create_p4barlow_twins_model', 'lf_bt', 'lf_rbt_sparse', 'my_splitter_bt', 'show_bt_batch']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -158,11 +158,6 @@ class BarlowTwins(Callback):
         nf = self.learn.model.projector[-1].out_features
         self.I = torch.eye(nf).to(self.dls.device)
 
-    def update_seed(self):
-        
-        indexmod=2
-        if self.index%indexmod == 0: 
-            self.seed = np.random.randint(0,10000)
 
     def before_epoch(self):
         self.index=-1  
@@ -185,7 +180,6 @@ class BarlowTwins(Callback):
         self.learn.xb = (torch.cat([xi, xj]),)
 
         self.index=self.index+1
-        self.update_seed()
         
     @torch.no_grad()
     def show(self, n=1): 
@@ -307,7 +301,57 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
+# %% ../nbs/base_model.ipynb 15
+def lf_rbt_sparse(pred,I,lmb,sparsity_level,
+               ):
+
+    pred_enc = pred[0]
+    pred = pred[1]
+
+    bs,nf = pred.size(0)//2,pred.size(1)
+
+    #All standard, from BT
+    z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
+    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
+    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
+
+    z1_enc, z2_enc = pred_enc[:bs],pred_enc[bs:]
+
+    sparsity = lmb*0.5*(torch.abs(z1_enc).sum() + torch.abs(z2_enc).sum())
+
+    C = (z1norm.T @ z2norm) / bs
+    cdiff = (C - I)**2
+
+    rr = cdiff*(1-I)*lmb #redundancy reduction term (scaled by lmb)
+
+    loss = (cdiff*I + rr).sum() #standard bt loss
+
+    loss = loss + sparsity_level*sparsity
+
+
+    torch.cuda.empty_cache()
+    return loss
+
+# %% ../nbs/base_model.ipynb 16
+@patch
+def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
+    "Assumes model created according to type p3"
+
+    if self.model_type=='barlow_twins':
+         pred_enc = pred[0]
+         pred = pred[1]
+         return lf_bt(pred, self.I,self.lmb)
+
+    elif self.model_type=='sparse_barlow_twins':
+        return lf_rbt_sparse(pred, self.I,self.lmb,sparsity_level=sparsity_level)
+
+    else: raise(Exception)
+
 # %% ../nbs/base_model.ipynb 17
+def my_splitter_bt(m):
+    return L(sequential(*m.encoder),m.projector).map(params)
+
+# %% ../nbs/base_model.ipynb 19
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         

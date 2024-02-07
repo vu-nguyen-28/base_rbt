@@ -318,8 +318,7 @@ class SupervisedLearning:
         test_grad_off(self.learn.model.encoder)
         self.learn.fit(freeze_epochs) #fit head for (typically one) epoch
         self.learn.unfreeze() #unfreeze encoder
-        test_grad_on(self.learn.model.encoder)
-        test_grad_on(self.learn.model.head)
+        test_grad_on(self.learn.model)
         lrs = self.learn.lr_find() #find learning rate
         self.learn.fit_one_cycle(epochs, lrs.valley) #fit all
         return self.learn.model
