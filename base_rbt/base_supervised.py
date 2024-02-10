@@ -12,8 +12,7 @@ from self_supervised.augmentations import *
 from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
-
-from .helper import *
+from .utils import *
 
 # %% ../nbs/base_supervised.ipynb 5
 #Batch level augmentations for linear classifier. At present time, just RandomResizedCrop and Normalization.
@@ -267,12 +266,13 @@ def encoder_head_splitter(m):
 class SupervisedLearning:
     "Train model using supervised learning. Either linear evaluation or semi-supervised."
 
-    def __init__(self,encoder,hp_dict):
+    def __init__(self,encoder,device,config):
 
 
         self.encoder = encoder
+        self.device = device
         
-        for key, value in hp_dict.items():
+        for key, value in vars(config).items():
             setattr(self, key, value)
         
         self.learn = self.setup_learn()
@@ -287,12 +287,11 @@ class SupervisedLearning:
         """
         # Setup the model: encoder + head
         model = LM(encoder=self.encoder, enc_dim=self.enc_dim, numout=len(self.dls_train.vocab))
-        if torch.cuda.is_available():
-            model.to('cuda')
+        model.to(self.device)
 
         # Setup the learner with callbacks and metrics
         bt = LinearBt(aug_pipelines=self.aug_pipelines_supervised, show_batch=True, n_in=self.n_in, print_augs=True)
-        learn = Learner(self.dls_train, model, splitter=encoder_head_splitter,cbs=[bt],wd=0, metrics=accuracy)
+        learn = Learner(self.dls_train, model, splitter=encoder_head_splitter,cbs=[bt],wd=self.wd, metrics=accuracy)
 
         return learn
     
