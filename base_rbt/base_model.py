@@ -17,7 +17,7 @@ import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
 from .utils import *
 
-# %% ../nbs/base_model.ipynb 6
+# %% ../nbs/base_model.ipynb 7
 #My edited version of RandTransform
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
@@ -117,7 +117,7 @@ def get_multi_aug_pipelines(size, **kwargs): return get_BT_batch_augs(size, **kw
 def get_barlow_twins_aug_pipelines(size,**kwargs): return get_multi_aug_pipelines(size=size,**kwargs)
 
 
-# %% ../nbs/base_model.ipynb 8
+# %% ../nbs/base_model.ipynb 9
 #Base functions / classes we need to train a BT / RBT model.
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -193,7 +193,7 @@ class BarlowTwins(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_model.ipynb 9
+# %% ../nbs/base_model.ipynb 10
 #Here we give the model API for `new idea` or `RAT` -> i.e. two projector networks
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -225,7 +225,7 @@ def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
     return P2BarlowTwinsModel(encoder, projector,projector2)
 
 
-# %% ../nbs/base_model.ipynb 10
+# %% ../nbs/base_model.ipynb 11
 #We want access to both representation and projection
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -257,7 +257,7 @@ def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
 
 
 
-# %% ../nbs/base_model.ipynb 11
+# %% ../nbs/base_model.ipynb 12
 class P4BarlowTwinsModel(Module):
     """An encoder followed by a projector
     """
@@ -288,7 +288,7 @@ def create_p4barlow_twins_model(encoder,encoder2, hidden_size=256, projection_si
     return P4BarlowTwinsModel(encoder,encoder2, projector,projector2)
 
 
-# %% ../nbs/base_model.ipynb 14
+# %% ../nbs/base_model.ipynb 15
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -302,7 +302,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 16
 def lf_rbt_sparse(pred,I,lmb,sparsity_level,
                ):
 
@@ -333,7 +333,7 @@ def lf_rbt_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 16
+# %% ../nbs/base_model.ipynb 17
 @patch
 def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
     "Assumes model created according to type p3"
@@ -348,11 +348,11 @@ def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 18
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 19
+# %% ../nbs/base_model.ipynb 20
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -362,7 +362,7 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 21
 class TrainBT:
     "Train model using BT."
 
@@ -428,6 +428,7 @@ def train_bt(model,#An encoder followed by a projector
             wd,
             epochs,
             freeze_epochs,
+            weight_type,
             device,
             ):
     
@@ -435,7 +436,7 @@ def train_bt(model,#An encoder followed by a projector
                         lmb=lmb,n_in=n_in,model_type=model_type,wd=wd,device=device
                         )
 
-    if config.weight_type!='random':
+    if weight_type!='random':
         model=bt_trainer.bt_transfer_learning(freeze_epochs=freeze_epochs,epochs=epochs)
     else:
         model=bt_trainer.bt_learning(epochs=epochs)
@@ -444,7 +445,7 @@ def train_bt(model,#An encoder followed by a projector
     
 
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 23
 def get_bt_cifar10_aug_pipelines(size):
     aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                     bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
