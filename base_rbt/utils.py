@@ -2,7 +2,9 @@
 
 # %% auto 0
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
-           'load_config', 'get_ssl_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder']
+           'load_config', 'get_ssl_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
+           'create_experiment_directory', 'save_configuration', 'save_metadata_file', 'update_experiment_index',
+           'get_latest_commit_hash']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
@@ -11,12 +13,16 @@ import torch
 from torchvision.models import resnet18, resnet34, resnet50
 import random 
 import os 
+import yaml
 import numpy as np
 import yaml
 import configparser
 from types import SimpleNamespace
 import importlib
 from nbdev import config
+import json
+import hashlib
+import subprocess
 
 
 # %% ../nbs/utils.ipynb 4
@@ -188,4 +194,108 @@ def resnet_arch_to_encoder(arch:str,weight_type='random'):
 
     return get_resnet_encoder(_model,n_in) 
 
+
+
+# %% ../nbs/utils.ipynb 10
+def generate_config_hash(config):
+    """
+    Generates a unique hash for a given experiment configuration.
+    
+    Args:
+    config (dict or Namespace): Experiment configuration. Can be a dictionary or a namespace object.
+    
+    Returns:
+    str: A unique hash representing the experiment configuration.
+    """
+    # Convert config to dict if it's a Namespace
+    config_dict = vars(config) if not isinstance(config, dict) else config
+    
+    # Serialize configuration to a sorted JSON string to ensure consistency
+    config_str = json.dumps(config_dict, sort_keys=True)
+    
+    # Generate SHA-256 hash from the serialized string
+    hash_obj = hashlib.sha256(config_str.encode())  # Encode to convert string to bytes
+    config_hash = hash_obj.hexdigest()
+    
+    # Optionally, return a truncated version of the hash for readability
+    short_hash = config_hash[:8]  # Use the first 8 characters as an example
+    return short_hash
+
+
+# %% ../nbs/utils.ipynb 13
+def create_experiment_directory(base_dir, config):
+    # Generate a unique hash for the configuration
+    unique_hash = generate_config_hash(config)
+    
+    # Construct the directory path for this experiment
+    experiment_dir = os.path.join(base_dir, config.train_type, config.dataset, config.arch, unique_hash)
+    
+    # Create the directory if it doesn't exist
+    os.makedirs(experiment_dir, exist_ok=True)
+    
+    return experiment_dir,unique_hash
+
+
+def save_configuration(config, experiment_dir):
+    """
+    Saves the experiment configuration as a YAML file in the experiment directory.
+
+    Args:
+    config (dict, Namespace, or any serializable object): Experiment configuration.
+    experiment_dir (str): Path to the directory where the config file will be saved.
+    """
+    config_file_path = os.path.join(experiment_dir, 'config.yaml')
+    
+    # Check if config is not a dictionary (e.g., a Namespace object) and convert if necessary
+    config_dict = vars(config) if not isinstance(config, dict) else config
+    
+    with open(config_file_path, 'w') as file:
+        yaml.dump(config_dict, file)
+    
+    print(f"Configuration saved to {config_file_path}")
+
+
+
+
+def save_metadata_file(experiment_dir, git_commit_hash, Description):
+    """
+    Saves a metadata file with the Git commit hash, start/end times, and a description for the experiment.
+    """
+    metadata_file_path = os.path.join(experiment_dir, 'metadata.yaml')
+    metadata_content = {
+        "Git Commit Hash": git_commit_hash,
+        "Description": Description
+    }
+
+    with open(metadata_file_path, 'w') as file:
+        yaml.dump(metadata_content, file)
+
+    print(f"Metadata saved to {metadata_file_path}")
+
+
+def update_experiment_index(project_root, details):
+    central_json_path = os.path.join(project_root, 'experiment_index.json')
+    
+    if os.path.exists(central_json_path):
+        with open(central_json_path, 'r') as file:
+            experiments_index = json.load(file)
+    else:
+        experiments_index = {}
+    
+    experiment_hash = details["experiment_hash"]
+    experiments_index[experiment_hash] = details
+    
+    with open(central_json_path, 'w') as file:
+        json.dump(experiments_index, file, indent=4)
+    
+    print(f"Updated experiment index for hash: {experiment_hash}")
+
+
+def get_latest_commit_hash(repo_path):
+    try:
+        commit_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_path).decode('ascii').strip()
+        return commit_hash
+    except subprocess.CalledProcessError as e:
+        print(f"Error obtaining latest commit hash: {e}")
+        return None
 
