@@ -4,7 +4,7 @@
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
            'load_config', 'get_ssl_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
            'create_experiment_directory', 'save_configuration', 'save_metadata_file', 'update_experiment_index',
-           'get_latest_commit_hash']
+           'get_latest_commit_hash', 'setup_experiment']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
@@ -78,6 +78,9 @@ def adjust_config_with_derived_values(config):
         config.encoder_dimension = 512
     elif config.arch == 'resnet50':
         config.encoder_dimension = 2048
+
+    else :
+        raise ValueError(f"Architecture {config.arch} not supported")
 
     return config
 
@@ -298,4 +301,21 @@ def get_latest_commit_hash(repo_path):
     except subprocess.CalledProcessError as e:
         print(f"Error obtaining latest commit hash: {e}")
         return None
+
+def setup_experiment(config,Description:str):
+
+    # Create a unique directory for this experiment based on its configuration
+    # This directory will contain all artifacts related to the experiment, such as model checkpoints and logs.
+    experiment_dir, experiment_hash = create_experiment_directory(base_dir, config)
+
+    print(f"The experiment_dir is: {experiment_dir} and the experiment hash is: {experiment_hash}")
+
+    # Save the loaded configuration to the experiment directory as a YAML file
+    # This ensures that we can reproduce or analyze the experiment later.
+    save_configuration(config, experiment_dir)
+
+    git_commit_hash = get_latest_commit_hash('.')
+    print(f"The git hash is: {git_commit_hash}")
+
+    return experiment_dir, experiment_hash,git_commit_hash
 

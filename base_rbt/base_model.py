@@ -5,7 +5,8 @@ __all__ = ['bt_aug_func_dict', 'RandomGaussianBlur', 'get_BT_batch_augs', 'get_m
            'get_barlow_twins_aug_pipelines', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins',
            'P2BarlowTwinsModel', 'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model',
            'P4BarlowTwinsModel', 'create_p4barlow_twins_model', 'lf_bt', 'lf_rbt_sparse', 'my_splitter_bt',
-           'show_bt_batch', 'TrainBT', 'train_bt', 'get_bt_cifar10_aug_pipelines', 'get_bt_aug_pipelines']
+           'show_bt_batch', 'SaveModelCheckpoint', 'TrainBT', 'train_bt', 'get_bt_cifar10_aug_pipelines',
+           'get_bt_aug_pipelines', 'run_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -17,7 +18,7 @@ import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
 from .utils import *
 
-# %% ../nbs/base_model.ipynb 7
+# %% ../nbs/base_model.ipynb 6
 #My edited version of RandTransform
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
@@ -117,7 +118,7 @@ def get_multi_aug_pipelines(size, **kwargs): return get_BT_batch_augs(size, **kw
 def get_barlow_twins_aug_pipelines(size,**kwargs): return get_multi_aug_pipelines(size=size,**kwargs)
 
 
-# %% ../nbs/base_model.ipynb 9
+# %% ../nbs/base_model.ipynb 8
 #Base functions / classes we need to train a BT / RBT model.
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -193,7 +194,7 @@ class BarlowTwins(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_model.ipynb 10
+# %% ../nbs/base_model.ipynb 9
 #Here we give the model API for `new idea` or `RAT` -> i.e. two projector networks
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -225,7 +226,7 @@ def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
     return P2BarlowTwinsModel(encoder, projector,projector2)
 
 
-# %% ../nbs/base_model.ipynb 11
+# %% ../nbs/base_model.ipynb 10
 #We want access to both representation and projection
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -257,7 +258,7 @@ def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
 
 
 
-# %% ../nbs/base_model.ipynb 12
+# %% ../nbs/base_model.ipynb 11
 class P4BarlowTwinsModel(Module):
     """An encoder followed by a projector
     """
@@ -288,7 +289,7 @@ def create_p4barlow_twins_model(encoder,encoder2, hidden_size=256, projection_si
     return P4BarlowTwinsModel(encoder,encoder2, projector,projector2)
 
 
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -302,7 +303,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 16
+# %% ../nbs/base_model.ipynb 15
 def lf_rbt_sparse(pred,I,lmb,sparsity_level,
                ):
 
@@ -333,7 +334,7 @@ def lf_rbt_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 16
 @patch
 def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
     "Assumes model created according to type p3"
@@ -348,11 +349,11 @@ def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 17
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 19
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -361,6 +362,19 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn._split(b)
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
+
+# %% ../nbs/base_model.ipynb 20
+class SaveModelCheckpoint(Callback):
+    def __init__(self, experiment_dir, save_interval=250):
+        self.experiment_dir = experiment_dir
+        self.save_interval = save_interval
+
+    def after_epoch(self):
+        if (self.epoch+1) % self.save_interval == 0:
+            print(f"Saving model checkpoint at epoch {self.epoch}")
+            checkpoint_filename = f"model_checkpoint_epoch_{self.epoch}.pt"
+            checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
+            torch.save(self.learn.model.state_dict(), checkpoint_path)
 
 # %% ../nbs/base_model.ipynb 21
 class TrainBT:
@@ -375,6 +389,9 @@ class TrainBT:
                  model_type,
                  wd,
                  device,
+                 experiment_dir, #Where to save model checkpoints (optional)
+                 save_interval #How often to save model checkpoints (optional)
+
                  ):
 
         store_attr()
@@ -390,8 +407,14 @@ class TrainBT:
         """
       
         self.model.to(self.device)
-  
-        learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=[BarlowTwins(self.bt_aug_pipelines,n_in=self.n_in,lmb=self.lmb,print_augs=False,model_type=self.model_type)])
+
+        cbs = [BarlowTwins(self.bt_aug_pipelines,n_in=self.n_in,lmb=self.lmb,print_augs=False,model_type=self.model_type)]
+
+        if self.experiment_dir is not None:
+            cbs.append(SaveModelCheckpoint(self.experiment_dir,self.save_interval))
+
+        learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=cbs
+                     )
 
         return learn
     
@@ -442,7 +465,7 @@ def train_bt(model,#An encoder followed by a projector
         model=bt_trainer.bt_learning(epochs=epochs)
 
     return model
-    
+
 
 
 # %% ../nbs/base_model.ipynb 23
@@ -474,5 +497,57 @@ def get_bt_aug_pipelines(bt_augs,size):
 
     return bt_aug_func_dict[bt_augs](size)
 
+    
+
+
+# %% ../nbs/base_model.ipynb 24
+def run_bt_experiment(Description,
+                      config,
+                      base_dir,
+                      experiment_dir, 
+                      experiment_hash,
+                      git_commit_hash
+                      ):
+
+    # Initialize the device for model training (CUDA or CPU)
+    device = default_device()
+
+    # Construct the model based on the configuration
+    # This involves selecting the architecture and setting model-specific hyperparameters.
+    encoder = resnet_arch_to_encoder(arch=config.arch, weight_type=config.weight_type)
+    model = create_p3barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)
+
+    # Prepare data loaders according to the dataset specified in the configuration
+    dls = get_ssl_dls(dataset=config.dataset, bs=config.bs, device=device)
+
+    # Set up data augmentation pipelines as specified in the configuration
+    bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)
+
+
+    # Train the model with the specified configurations and save checkpoints as defined above
+    model = train_bt(model=model,
+                    dls=dls,
+                    bt_aug_pipelines=bt_aug_pipelines,
+                    lmb=config.lmb,
+                    n_in=config.n_in,
+                    model_type=config.model_type,
+                    wd=config.wd,
+                    epochs=config.epochs,
+                    freeze_epochs=config.freeze_epochs,
+                    weight_type=config.weight_type,
+                    device=device,
+                    )
+
+    # Save a metadata file in the experiment directory with the Git commit hash and other details
+    save_metadata_file(experiment_dir=experiment_dir, git_commit_hash=git_commit_hash,Description=Description)
+
+    # After experiment execution and all processing are complete
+    update_experiment_index(base_dir,{
+        "experiment_hash": experiment_hash,  # Unique identifier derived from the experiment's configuration
+        "experiment_dir": experiment_dir,  # Absolute path to the experiment's dedicated directory
+        "git_commit_hash": git_commit_hash,  # Git commit hash for the code version used in the experiment
+        # Potentially include additional details collected during or after the experiment, such as:
+        # Any other metadata or results summary that is relevant to the experiment
+                            })
     
 
