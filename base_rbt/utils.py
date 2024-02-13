@@ -302,7 +302,7 @@ def get_latest_commit_hash(repo_path):
         print(f"Error obtaining latest commit hash: {e}")
         return None
 
-def setup_experiment(config,Description:str):
+def setup_experiment(config,base_dir,Description:str):
 
     # Create a unique directory for this experiment based on its configuration
     # This directory will contain all artifacts related to the experiment, such as model checkpoints and logs.

@@ -389,8 +389,8 @@ class TrainBT:
                  model_type,
                  wd,
                  device,
-                 experiment_dir, #Where to save model checkpoints (optional)
-                 save_interval #How often to save model checkpoints (optional)
+                 experiment_dir=None, #Where to save model checkpoints (optional)
+                 save_interval=None #How often to save model checkpoints (optional)
 
                  ):
 
@@ -453,10 +453,13 @@ def train_bt(model,#An encoder followed by a projector
             freeze_epochs,
             weight_type,
             device,
+            experiment_dir=None, #Where to save model checkpoints (optional)
+            save_interval=None #How often to save model checkpoints (optional)
             ):
     
     bt_trainer = TrainBT(model=model,dls=dls,bt_aug_pipelines=bt_aug_pipelines,
-                        lmb=lmb,n_in=n_in,model_type=model_type,wd=wd,device=device
+                        lmb=lmb,n_in=n_in,model_type=model_type,wd=wd,device=device,
+                        experiment_dir=experiment_dir,save_interval=save_interval
                         )
 
     if weight_type!='random':
@@ -506,7 +509,8 @@ def run_bt_experiment(Description,
                       base_dir,
                       experiment_dir, 
                       experiment_hash,
-                      git_commit_hash
+                      git_commit_hash,
+                      save_interval=250
                       ):
 
     # Initialize the device for model training (CUDA or CPU)
@@ -536,6 +540,8 @@ def run_bt_experiment(Description,
                     freeze_epochs=config.freeze_epochs,
                     weight_type=config.weight_type,
                     device=device,
+                    experiment_dir=experiment_dir,
+                    save_interval=save_interval
                     )
 
     # Save a metadata file in the experiment directory with the Git commit hash and other details
