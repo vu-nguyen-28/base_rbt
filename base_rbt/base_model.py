@@ -376,7 +376,7 @@ class SaveModelCheckpoint(Callback):
             checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
             torch.save(self.learn.model.state_dict(), checkpoint_path)
 
-# %% ../nbs/base_model.ipynb 21
+# %% ../nbs/base_model.ipynb 22
 class TrainBT:
     "Train model using BT."
 
@@ -471,7 +471,7 @@ def train_bt(model,#An encoder followed by a projector
 
 
 
-# %% ../nbs/base_model.ipynb 23
+# %% ../nbs/base_model.ipynb 24
 def get_bt_cifar10_aug_pipelines(size):
     aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                     bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
@@ -503,14 +503,14 @@ def get_bt_aug_pipelines(bt_augs,size):
     
 
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 25
 def run_bt_experiment(Description,
                       config,
+                      save_interval,
                       base_dir,
                       experiment_dir, 
                       experiment_hash,
                       git_commit_hash,
-                      save_interval=250
                       ):
 
     # Initialize the device for model training (CUDA or CPU)
