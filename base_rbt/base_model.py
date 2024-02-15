@@ -73,7 +73,8 @@ def get_BT_batch_augs(size,
                     flip=True,crop=True,noise=True,rotate=True,jitter=True,bw=True,blur=True,solar=True, #Whether to use  given aug or not
                     resize_scale=(0.08, 1.0),resize_ratio=(3/4, 4/3),noise_std=0.025, rotate_deg=30,jitter_s=.6,blur_s=(4,32),blur_r=(0.1,2),blur_sig=None,sol_t=0.05,sol_a=0.05, #hps of diff augs
                     flip_p=0.5, rotate_p=0.3,noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,sol_p=0.1, #prob of performing aug
-                    same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]):
+                    same_on_batch=False,stats=imagenet_stats,cuda=default_device().type == 'cuda',xtra_tfms=[]
+                    ):
     "Input batch augmentations implemented in tv+kornia+fastai"
     
     tfms = []
