@@ -19,8 +19,17 @@ def get_bt_cifar10_train_dls(bs,device,num_workers=12):
                                       )
 
 
-#TODO: add train dataloader for supervised learning (how many variants are there?)
-def get_supervised_cifar10_train_dls():pass 
+def get_supervised_cifar10_train_dls(bs,device,num_workers=12):
+
+    return ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+                                  valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
+                                      )
+
+def get_supervised_cifar10_test_dls(bs,device,num_workers=12):
+    return ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+                                  valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
+                                      )
+                                      
 
 def get_supervised_cifar10_test_dls():pass
 
@@ -41,5 +50,11 @@ def label_func(fname):
 #labels for train,eval and test
 labels_train = [label_func(fname) for fname in fnames_train]
 labels_test = [label_func(fname) for fname in fnames_test]
+
+test_eq(len(labels_train),len(fnames_train))
+test_eq(len(labels_test),len(fnames_test))
+test_eq(len(set(labels_train)),10)
+test_eq(len(labels_train),50000)
+test_eq(len(labels_test),10000)
 
 
