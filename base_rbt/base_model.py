@@ -144,15 +144,17 @@ def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=
 
 class BarlowTwins(Callback):
     order,run_valid = 9,True
-    def __init__(self, aug_pipelines,n_in, model_type='barlow_twins',lmb=5e-3, print_augs=False):
+    def __init__(self, aug_pipelines,n_in,lmb,sparsity_level, 
+                model_type='barlow_twins',print_augs=False
+                 ):
         assert_aug_pipelines(aug_pipelines)
         self.aug1, self.aug2 = aug_pipelines
         if print_augs: print(self.aug1), print(self.aug2)
         store_attr('lmb')
+        store_attr('sparsity_level')
         self.n_in=n_in
         self.model_type = model_type
         self.index=-1 #Gets updated after each batch
-        self.seed = np.random.randint(0,10000) #gets updated after each batch
         self.acc_dict = {}
         
     def before_fit(self): 
@@ -305,7 +307,7 @@ def lf_bt(pred,I,lmb):
 
 # %% ../nbs/base_model.ipynb 15
 def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
-               ):
+                      ):
 
     pred_enc = pred[0]
     pred = pred[1]
@@ -339,7 +341,7 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
 
 # %% ../nbs/base_model.ipynb 16
 def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
-               ):
+                      ):
 
     pred_enc = pred[0]
     pred = pred[1]
@@ -369,7 +371,7 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
 
 # %% ../nbs/base_model.ipynb 17
 @patch
-def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
+def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
 
     if self.model_type=='barlow_twins':
@@ -378,10 +380,10 @@ def lf(self:BarlowTwins, pred,*yb,sparsity_level=0.25):
          return lf_bt(pred, self.I,self.lmb)
 
     elif self.model_type=='indiv_sparse_barlow_twins':
-        return lf_bt_indiv_sparse(pred, self.I,self.lmb,sparsity_level=sparsity_level)
+        return lf_bt_indiv_sparse(pred, self.I,lmb=self.lmb,sparsity_level=self.sparsity_level)
     
     elif self.model_type=='group_sparse_barlow_twins':
-        return lf_bt_group_sparse(pred, self.I,self.lmb,sparsity_level=sparsity_level)
+        return lf_bt_group_sparse(pred, self.I,lmb=self.lmb,sparsity_level=self.sparsity_level)
 
     else: raise(Exception)
 
@@ -412,7 +414,7 @@ class SaveModelCheckpoint(Callback):
             checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
             torch.save(self.learn.model.state_dict(), checkpoint_path)
 
-# %% ../nbs/base_model.ipynb 23
+# %% ../nbs/base_model.ipynb 22
 class TrainBT:
     "Train model using BT."
 
@@ -421,6 +423,7 @@ class TrainBT:
                  dls,
                  bt_aug_pipelines,
                  lmb,
+                 sparsity_level,
                  n_in,
                  model_type,
                  wd,
@@ -444,7 +447,11 @@ class TrainBT:
       
         self.model.to(self.device)
 
-        cbs = [BarlowTwins(self.bt_aug_pipelines,n_in=self.n_in,lmb=self.lmb,print_augs=False,model_type=self.model_type)]
+        cbs = [BarlowTwins(self.bt_aug_pipelines,n_in=self.n_in,lmb=self.lmb,
+                           sparsity_level=self.sparsity_level,print_augs=False,
+                           model_type=self.model_type
+                           )
+              ]
 
         if self.experiment_dir is not None:
             cbs.append(SaveModelCheckpoint(self.experiment_dir,self.save_interval))
@@ -482,6 +489,7 @@ def train_bt(model,#An encoder followed by a projector
             dls,
             bt_aug_pipelines,
             lmb,
+            sparsity_level,
             n_in,
             model_type,
             wd,
@@ -494,8 +502,8 @@ def train_bt(model,#An encoder followed by a projector
             ):
     
     bt_trainer = TrainBT(model=model,dls=dls,bt_aug_pipelines=bt_aug_pipelines,
-                        lmb=lmb,n_in=n_in,model_type=model_type,wd=wd,device=device,
-                        experiment_dir=experiment_dir,save_interval=save_interval
+                        lmb=lmb,sparsity_level=sparsity_level,n_in=n_in,model_type=model_type,wd=wd,
+                        device=device,experiment_dir=experiment_dir,save_interval=save_interval
                         )
 
     if weight_type!='random':
@@ -507,7 +515,7 @@ def train_bt(model,#An encoder followed by a projector
 
 
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 24
 def get_bt_cifar10_aug_pipelines(size):
     aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                     bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
@@ -539,7 +547,7 @@ def get_bt_aug_pipelines(bt_augs,size):
     
 
 
-# %% ../nbs/base_model.ipynb 26
+# %% ../nbs/base_model.ipynb 25
 def run_bt_experiment(Description,
                       config,
                       save_interval,
@@ -569,6 +577,7 @@ def run_bt_experiment(Description,
                     dls=dls,
                     bt_aug_pipelines=bt_aug_pipelines,
                     lmb=config.lmb,
+                    sparsity_level=config.sparsity_level,
                     n_in=config.n_in,
                     model_type=config.model_type,
                     wd=config.wd,
