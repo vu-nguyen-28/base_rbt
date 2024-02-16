@@ -2,9 +2,9 @@
 
 # %% auto 0
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
-           'load_config', 'get_ssl_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
-           'create_experiment_directory', 'save_configuration', 'save_metadata_file', 'update_experiment_index',
-           'get_latest_commit_hash', 'setup_experiment']
+           'load_config', 'get_ssl_dls', 'get_supervised_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder',
+           'generate_config_hash', 'create_experiment_directory', 'save_configuration', 'save_metadata_file',
+           'update_experiment_index', 'get_latest_commit_hash', 'setup_experiment']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
@@ -94,7 +94,7 @@ def load_config(file_path):
     return config
 
 # %% ../nbs/utils.ipynb 8
-def get_ssl_dls(dataset,bs,device):
+def get_ssl_dls(dataset,bs,size,device):
     # Define the base package name in a variable for easy modification
 
     try:
@@ -120,7 +120,7 @@ def get_ssl_dls(dataset,bs,device):
     
     # Proceed to call the function with arguments from the config
     try:
-        dls_train = data_loader_func(bs=bs,device=device)
+        dls_train = data_loader_func(bs=bs,size=size,device=device)
     except Exception as e:
         # Handle any errors that occur during the function call
         raise RuntimeError(f"An error occurred while calling '{func_name}' from '{module_path}': {e}") from None
@@ -129,6 +129,63 @@ def get_ssl_dls(dataset,bs,device):
 
 
 # %% ../nbs/utils.ipynb 9
+def get_supervised_dls(dataset,bs,bs_test,size,device):
+    "Get train and test dataloaders for supervised learning"
+
+    try:
+        # Construct the module path
+        module_path = f"{PACKAGE_NAME}.{dataset}_dataloading"
+        
+        # Dynamically import the module
+        dataloading_module = importlib.import_module(module_path)
+    except ModuleNotFoundError:
+        # Handle the case where the module cannot be found
+        raise ImportError(f"Could not find a data loading module for '{dataset}'. "
+                          f"Make sure '{module_path}' exists and is correctly named.") from None
+    
+    # Assuming the function name follows a consistent naming convention
+    func_name_train = f"get_supervised_{dataset}_train_dls"
+    try:
+        # Retrieve the data loading function from the module
+        train_data_loader_func = getattr(dataloading_module, func_name_train)
+    except AttributeError:
+        # Handle the case where the function does not exist in the module
+        raise AttributeError(f"The function '{func_name_train}' was not found in '{module_path}'. "
+                             "Ensure it is defined and named correctly.") from None
+    
+    # Proceed to call the function with arguments from the config
+    try:
+        dls_train = train_data_loader_func(bs=bs,size=size,device=device)
+    except Exception as e:
+        # Handle any errors that occur during the function call
+        raise RuntimeError(f"An error occurred while calling '{func_name_train}' from '{module_path}': {e}") from None
+    
+    
+      # Assuming the function name follows a consistent naming convention
+    func_name_test = f"get_supervised_{dataset}_test_dls"
+    try:
+        # Retrieve the data loading function from the module
+        test_data_loader_func = getattr(dataloading_module, func_name_test)
+    except AttributeError:
+        # Handle the case where the function does not exist in the module
+        raise AttributeError(f"The function '{func_name_test}' was not found in '{module_path}'. "
+                             "Ensure it is defined and named correctly.") from None
+    
+    # Proceed to call the function with arguments from the config
+    try:
+        dls_test = test_data_loader_func(bs=bs_test,size=size,device=device)
+    except Exception as e:
+        # Handle any errors that occur during the function call
+        raise RuntimeError(f"An error occurred while calling '{func_name_test}' from '{module_path}': {e}") from None
+    
+    
+
+    return {'train_dls':dls_train,'test_dls':dls_test}
+
+
+    
+
+# %% ../nbs/utils.ipynb 10
 @torch.no_grad()
 def get_resnet_encoder(model,n_in=3):
     model = create_body(model, n_in=n_in, pretrained=False, cut=len(list(model.children()))-1)
@@ -199,7 +256,7 @@ def resnet_arch_to_encoder(arch:str,weight_type='random'):
 
 
 
-# %% ../nbs/utils.ipynb 10
+# %% ../nbs/utils.ipynb 11
 def generate_config_hash(config):
     """
     Generates a unique hash for a given experiment configuration.
@@ -225,7 +282,7 @@ def generate_config_hash(config):
     return short_hash
 
 
-# %% ../nbs/utils.ipynb 13
+# %% ../nbs/utils.ipynb 14
 def create_experiment_directory(base_dir, config):
     # Generate a unique hash for the configuration
     unique_hash = generate_config_hash(config)

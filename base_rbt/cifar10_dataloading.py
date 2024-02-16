@@ -12,26 +12,24 @@ from fastai.vision.all import *
 from .helper import *
 
 # %% ../nbs/cifar10_dataloading.ipynb 5
-def get_bt_cifar10_train_dls(bs,device,num_workers=12):
+def get_bt_cifar10_train_dls(bs,size,device,num_workers=12):
   
     return ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )
 
 
-def get_supervised_cifar10_train_dls(bs,device,num_workers=12):
+def get_supervised_cifar10_train_dls(bs,size,device,num_workers=12):
 
     return ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )
 
-def get_supervised_cifar10_test_dls(bs,device,num_workers=12):
+def get_supervised_cifar10_test_dls(bs,size,device,num_workers=12):
     return ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )
                                       
-
-def get_supervised_cifar10_test_dls():pass
 
 seed=42
 size=32

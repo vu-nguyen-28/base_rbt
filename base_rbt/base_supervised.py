@@ -260,7 +260,7 @@ class SupervisedLearning:
 
     def __init__(self,
                  model,
-                 dls,
+                 dls_train,
                  aug_pipelines_supervised,
                  n_in,
                  model_type,
@@ -325,7 +325,7 @@ class SupervisedLearning:
 
 
 def train_supervised(model,
-                    dls,
+                    dls_train,
                     aug_pipelines_supervised,
                     n_in,
                     model_type,
@@ -340,7 +340,7 @@ def train_supervised(model,
 
 
     supervised = SupervisedLearning(model=model,
-                                    dls=dls,
+                                    dls_train=dls_train,
                                     aug_pipelines_supervised=aug_pipelines_supervised,
                                     n_in=n_in,
                                     model_type=model_type,

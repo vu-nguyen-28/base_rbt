@@ -567,7 +567,7 @@ def run_bt_experiment(Description,
     model = create_p3barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)
 
     # Prepare data loaders according to the dataset specified in the configuration
-    dls = get_ssl_dls(dataset=config.dataset, bs=config.bs, device=device)
+    dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device)
 
     # Set up data augmentation pipelines as specified in the configuration
     bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)
