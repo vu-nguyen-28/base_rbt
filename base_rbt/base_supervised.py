@@ -33,15 +33,15 @@ def get_linear_batch_augs(size,resize=True,
 # %% ../nbs/base_supervised.ipynb 7
 class LM(nn.Module):
     "Basic linear model"
-    def __init__(self,encoder,numout,enc_dim=2048):
+    def __init__(self,encoder,numout,encoder_dimension=2048):
         super().__init__()
         self.encoder=encoder
-        self.head=nn.Linear(enc_dim,numout)
+        self.head=nn.Linear(encoder_dimension,numout)
 
     def forward(self,x):
         return self.head(self.encoder(x))
 
-# %% ../nbs/base_supervised.ipynb 9
+# %% ../nbs/base_supervised.ipynb 10
 # class LinearBt(Callback):
 #     order,run_valid = 9,True
 #     def __init__(self,aug_pipelines,n_in, show_batch=False, print_augs=False,data=None):
@@ -141,7 +141,7 @@ class LinearBt(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_supervised.ipynb 14
+# %% ../nbs/base_supervised.ipynb 15
 def show_linear_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
     bt = LinearBt(aug,show_batch=True,n_in=n_in,print_augs=print_augs)
@@ -152,7 +152,7 @@ def show_linear_batch(dls,n_in,aug,n=2,print_augs=True):
     axes = learn.linear_bt.show(n=n)
     
 
-# %% ../nbs/base_supervised.ipynb 16
+# %% ../nbs/base_supervised.ipynb 17
 def get_supervised_aug_pipelines(augs,size):
 
     return supervised_aug_func_dict[augs](size)
@@ -163,7 +163,7 @@ def get_supervised_cifar10_augmentations(size):
 
 supervised_aug_func_dict = {'supervised_cifar10_augmentations':get_supervised_cifar10_augmentations}
 
-# %% ../nbs/base_supervised.ipynb 20
+# %% ../nbs/base_supervised.ipynb 21
 @torch.no_grad()
 def predict_model(xval,yval,model,aug_pipelines_test,numavg=3,criterion = CrossEntropyLossFlat(),deterministic=False):
     "Note that this assumes xval is entire validation set. If it doesn't fit in memory, can't use this guy"
@@ -237,11 +237,11 @@ def predict_whole_model(dls_test, model, aug_pipelines_test, numavg=3, criterion
     return y,probs,ypred,acc
 
 
-# %% ../nbs/base_supervised.ipynb 22
+# %% ../nbs/base_supervised.ipynb 23
 def encoder_head_splitter(m):
     return L(sequential(*m.encoder),m.head).map(params)
 
-# %% ../nbs/base_supervised.ipynb 24
+# %% ../nbs/base_supervised.ipynb 25
 class SaveModelCheckpoint(Callback):
     def __init__(self, experiment_dir, save_interval=250):
         self.experiment_dir = experiment_dir
@@ -254,7 +254,7 @@ class SaveModelCheckpoint(Callback):
             checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
             torch.save(self.learn.model.state_dict(), checkpoint_path)
 
-# %% ../nbs/base_supervised.ipynb 25
+# %% ../nbs/base_supervised.ipynb 26
 class SupervisedLearning:
     "Train model using supervised learning. Either linear evaluation or semi-supervised."
 
@@ -351,11 +351,16 @@ def train_supervised(model,
                                     )
     if weight_type!='random':
         #means we freeze the encoder for `freeze_epochs` first
-        if model_type=='linear':
-            model = supervised.linear_evaluation(freeze_epochs=freeze_epochs,epochs=epochs)
+        if model_type=='linear_evaluation':
+            model = supervised.linear_evaluation(epochs=epochs)
         elif model_type=='semi_supervised':
             model = supervised.semi_supervised(freeze_epochs=freeze_epochs,epochs=epochs)
 
+        else:
+            raise ValueError('model_type must be linear_evaluation or semi_supervised')
+
     else:
         model = supervised.supervised_learning(epochs=epochs)
+
+    return model
 

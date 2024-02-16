@@ -10,4 +10,5 @@ augs: supervised_cifar10_augmentations # other options: bt_`dataset_name`_aug_pi
 model_type: linear_evaluation  #or semi_supervised
 wd: 0.0 #1.5*1e-6 which is the deault in the paper. We may have to ablate as a control to our idea though
 epochs: 200  # epochs to train BT variant
+freeze_epochs: none 
 
