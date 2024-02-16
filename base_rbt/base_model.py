@@ -415,6 +415,9 @@ def lf(self:BarlowTwins, pred,*yb):
     elif self.model_type=='group_sparse_barlow_twins':
         return lf_bt_group_sparse(pred, self.I,lmb=self.lmb,sparsity_level=self.sparsity_level)
 
+    elif self.model_type=='proj_group_sparse_barlow_twins':
+        return lf_bt_proj_group_sparse(pred, self.I,lmb=self.lmb,sparsity_level=self.sparsity_level)
+
     else: raise(Exception)
 
 # %% ../nbs/base_model.ipynb 19
