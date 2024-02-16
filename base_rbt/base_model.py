@@ -5,7 +5,7 @@ __all__ = ['bt_aug_func_dict', 'RandomGaussianBlur', 'get_BT_batch_augs', 'get_m
            'get_barlow_twins_aug_pipelines', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins',
            'P2BarlowTwinsModel', 'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model',
            'P4BarlowTwinsModel', 'create_p4barlow_twins_model', 'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse',
-           'my_splitter_bt', 'show_bt_batch', 'SaveModelCheckpoint', 'TrainBT', 'train_bt',
+           'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'SaveModelCheckpoint', 'TrainBT', 'train_bt',
            'get_bt_cifar10_aug_pipelines', 'get_bt_aug_pipelines', 'run_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
@@ -371,6 +371,35 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
     return loss
 
 # %% ../nbs/base_model.ipynb 17
+def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
+                           ):
+
+    pred_enc = pred[0]
+    pred = pred[1]
+
+    bs,nf = pred.size(0)//2,pred.size(1)
+
+    #All standard, from BT
+    z1, z2 = pred[:bs],pred[bs:] #so z1 is bs*projection_size, likewise for z2
+    z1norm = (z1 - z1.mean(0)) / z1.std(0, unbiased=False)
+    z2norm = (z2 - z2.mean(0)) / z2.std(0, unbiased=False)
+
+
+    sparsity = lmb * ((0.5 * z1norm.pow(2) + 0.5 * z2norm.pow(2)).pow(0.5)).sum()
+
+    C = (z1norm.T @ z2norm) / bs
+    cdiff = (C - I)**2
+
+    rr = cdiff*(1-I)*lmb #redundancy reduction term (scaled by lmb)
+
+    loss = (cdiff*I + rr).sum() #standard bt loss
+
+    loss = loss + sparsity_level*sparsity
+
+    torch.cuda.empty_cache()
+    return loss
+
+# %% ../nbs/base_model.ipynb 18
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
@@ -388,11 +417,11 @@ def lf(self:BarlowTwins, pred,*yb):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 19
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 21
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -402,7 +431,7 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 21
+# %% ../nbs/base_model.ipynb 22
 class SaveModelCheckpoint(Callback):
     def __init__(self, experiment_dir, save_interval=250):
         self.experiment_dir = experiment_dir
@@ -415,7 +444,7 @@ class SaveModelCheckpoint(Callback):
             checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
             torch.save(self.learn.model.state_dict(), checkpoint_path)
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 23
 class TrainBT:
     "Train model using BT."
 
@@ -516,7 +545,7 @@ def train_bt(model,#An encoder followed by a projector
 
 
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 25
 def get_bt_cifar10_aug_pipelines(size):
     aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                     bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
@@ -548,7 +577,7 @@ def get_bt_aug_pipelines(bt_augs,size):
     
 
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 26
 def run_bt_experiment(Description,
                       config,
                       save_interval,
