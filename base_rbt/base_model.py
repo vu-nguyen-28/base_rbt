@@ -325,7 +325,6 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
 
     sparsity = lmb*(0.5*torch.abs(z1_enc) + 0.5*torch.abs(z2_enc)).sum()
 
-
     C = (z1norm.T @ z2norm) / bs
     cdiff = (C - I)**2
 
