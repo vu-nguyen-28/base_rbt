@@ -9,7 +9,7 @@ import torch
 from fastai.vision.all import *
 # from self_supervised.augmentations import *
 # from self_supervised.layers import *
-from .helper import *
+from .utils import *
 
 # %% ../nbs/cifar10_dataloading.ipynb 5
 def get_bt_cifar10_train_dls(bs,size,device,num_workers=12):

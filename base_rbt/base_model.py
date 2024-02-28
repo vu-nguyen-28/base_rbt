@@ -245,7 +245,6 @@ bt_aug_func_dict = {'bt_cifar10_aug_pipelines':get_bt_cifar10_aug_pipelines,'get
                    'get_bt_dermnet_aug_pipelines':get_bt_dermnet_aug_pipelines
                    }
 
-
 def get_bt_aug_pipelines(bt_augs,size):
 
     return bt_aug_func_dict[bt_augs](size)
@@ -756,88 +755,7 @@ def train_bt(model,#An encoder followed by a projector
 
 
 
-# %% ../nbs/base_model.ipynb 28
-def get_bt_cifar10_aug_pipelines(size):
-    aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
-                                                    bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
-                                                    resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,
-                                                    bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.5, jitter_p=0.5, blur_p=0.5,sol_p=0.0,
-                                                    stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
-                                                    )
-
-    aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=size,
-                                                    bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
-                                                    resize_scale=(0.4, 1.0),rotate_deg=45,noise_std=0.0125, jitter_s=1.0, blur_s=math.ceil(size/10)+1,sol_t=0.01,sol_a=0.01,
-                                                    bw_p=0.2, flip_p=0.5,rotate_p=0.25,noise_p=0.5, jitter_p=0.5, blur_p=0.1,sol_p=0.2,
-                                                    stats=cifar_stats,same_on_batch=False, xtra_tfms=[]
-                                                    )
-
-    bt_cifar10_aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
-
-    return bt_cifar10_aug_pipelines
-
-#Add other augmentations here e.g. BYOL augs
-IMAGENET_Augs = dict(flip_p1=0.5,flip_p2=0.5,jitter_p1=0.8,jitter_p2=0.8,bw_p1=0.2,
-                bw_p2=0.2,blur_p1=1.0,blur_p2=0.1,sol_p1=0.0,sol_p2=0.2,noise_p1=0.0,
-                noise_p2=0.0,cut_p=0,resize_scale=(0.7, 1.0),resize_ratio=(3/4, 4/3),rotate_deg=45.0,
-                rotate_p=0.5,blur_r=(0.1,2),blur_s=13,sol_t=0.1,sol_a=0.1,noise_std=0.1
-                )
-
-DERMNET_Augs = IMAGENET_Augs
-DERMNET_Augs['min_dropout_size']=(25, 100)
-DERMNET_Augs['max_dropout_size']=(50,150)
-DERMNET_Augs['cut_p']=0.5
-
-def helper_get_bt_augs(size,Augs=IMAGENET_Augs):
-
-
-    aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
-                        rotate=True,jitter=True,noise=True,bw=True,blur=True,solar=True,cutout=True, #Whether to use aug or not
-                        resize_scale=Augs['resize_scale'],resize_ratio=Augs['resize_ratio'],
-                        noise_std=Augs['noise_std'], rotate_deg=Augs['rotate_deg'],
-                        blur_r=Augs['blur_r'],blur_s=Augs['blur_s'],sol_t=Augs['sol_t'],sol_a=Augs['sol_a'],
-                        min_dropout_size=Augs['min_dropout_size'],max_dropout_size=Augs['max_dropout_size'],
-                        flip_p=Augs['flip_p1'], rotate_p=Augs['rotate_p'],noise_p=Augs['noise_p1'],
-                        jitter_p=Augs['jitter_p1'], bw_p=Augs['bw_p1'], blur_p=Augs['blur_p1'],
-                        sol_p=Augs['sol_p1'],cut_p=Augs['cut_p'], #prob of performing aug
-                        same_on_batch=False,stats=None)
-
-    aug_pipelines_2 = get_barlow_twins_aug_pipelines(size=size,
-                        rotate=True,jitter=True,noise=True,bw=True,blur=True,solar=True,cutout=True, #Whether to use aug or not
-                        resize_scale=Augs['resize_scale'],resize_ratio=Augs['resize_ratio'],
-                        noise_std=Augs['noise_std'], rotate_deg=Augs['rotate_deg'],
-                        blur_r=Augs['blur_r'],blur_s=Augs['blur_s'],sol_t=Augs['sol_t'],sol_a=Augs['sol_a'],
-                        min_dropout_size=Augs['min_dropout_size'],max_dropout_size=Augs['max_dropout_size'],
-                        flip_p=Augs['flip_p2'], rotate_p=Augs['rotate_p'],noise_p=Augs['noise_p2'],
-                        jitter_p=Augs['jitter_p2'], bw_p=Augs['bw_p2'], blur_p=Augs['blur_p2'],
-                        sol_p=Augs['sol_p2'],cut_p=Augs['cut_p'], #prob of performing aug
-                        same_on_batch=False,stats=None)
-
-    aug_pipelines = [aug_pipelines_1,aug_pipelines_2]
-
-    return aug_pipelines
-
-def get_bt_imagenet_aug_pipelines(size):
-    return helper_get_bt_augs(size,Augs=IMAGENET_Augs)
-
-def get_bt_dermnet_aug_pipelines(size):
-    return helper_get_bt_augs(size,Augs=DERMNET_Augs)
-
-
-
-bt_aug_func_dict = {'bt_cifar10_aug_pipelines':get_bt_cifar10_aug_pipelines,'get_bt_imagenet_aug_pipelines':get_bt_imagenet_aug_pipelines,
-                   'get_bt_dermnet_aug_pipelines':get_bt_dermnet_aug_pipelines
-                   }
-
-
-def get_bt_aug_pipelines(bt_augs,size):
-
-    return bt_aug_func_dict[bt_augs](size)
-
-    
-
-
-# %% ../nbs/base_model.ipynb 29
+# %% ../nbs/base_model.ipynb 27
 def run_bt_experiment(Description,
                       config,
                       save_interval,
@@ -857,7 +775,7 @@ def run_bt_experiment(Description,
 
     # Prepare data loaders according to the dataset specified in the configuration
     dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device)
-
+    
     # Set up data augmentation pipelines as specified in the configuration
     bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)
 
