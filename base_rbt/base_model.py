@@ -241,8 +241,8 @@ def get_bt_dermnet_aug_pipelines(size):
 
 
 
-bt_aug_func_dict = {'bt_cifar10_aug_pipelines':get_bt_cifar10_aug_pipelines,'get_bt_imagenet_aug_pipelines':get_bt_imagenet_aug_pipelines,
-                   'get_bt_dermnet_aug_pipelines':get_bt_dermnet_aug_pipelines
+bt_aug_func_dict = {'bt_cifar10_aug_pipelines':get_bt_cifar10_aug_pipelines,'bt_imagenet_aug_pipelines':get_bt_imagenet_aug_pipelines,
+                   'bt_dermnet_aug_pipelines':get_bt_dermnet_aug_pipelines
                    }
 
 def get_bt_aug_pipelines(bt_augs,size):
