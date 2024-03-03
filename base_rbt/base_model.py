@@ -682,7 +682,7 @@ class TrainBT:
               ]
 
         if self.experiment_dir is not None:
-            cbs.append(SaveModelCheckpoint(self.experiment_dir,self.save_interval))
+            cbs.append(SaveLearnerCheckpoint(self.experiment_dir,self.save_interval))
 
         learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=cbs
                      )
@@ -797,6 +797,7 @@ def run_bt_experiment(Description,
                     epochs=config.epochs,
                     freeze_epochs=config.freeze_epochs,
                     start_epoch=config.start_epoch,
+                    end_epoch=config.end_epoch,
                     weight_type=config.weight_type,
                     device=device,
                     experiment_dir=experiment_dir,
