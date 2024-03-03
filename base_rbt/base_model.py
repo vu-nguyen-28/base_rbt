@@ -8,7 +8,7 @@ __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianB
            'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'P4BarlowTwinsModel',
            'create_p4barlow_twins_model', 'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse',
            'lf_bt_group_norm_sparse', 'lf_bt_fun', 'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch',
-           'SaveModelCheckpoint', 'TrainBT', 'train_bt', 'run_bt_experiment']
+           'TrainBT', 'train_bt', 'run_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -642,21 +642,8 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     axes = learn.barlow_twins.show(n=n)
 
 # %% ../nbs/base_model.ipynb 25
-class SaveModelCheckpoint(Callback):
-    def __init__(self, experiment_dir, save_interval=250):
-        self.experiment_dir = experiment_dir
-        self.save_interval = save_interval
-
-    def after_epoch(self):
-        if (self.epoch+1) % self.save_interval == 0:
-            print(f"Saving model checkpoint at epoch {self.epoch}")
-            checkpoint_filename = f"model_checkpoint_epoch_{self.epoch}.pt"
-            checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
-            torch.save(self.learn.model.state_dict(), checkpoint_path)
-
-# %% ../nbs/base_model.ipynb 26
 class TrainBT:
-    "Train model using BT."
+    "Train model using BT and optionally save checkpoints."
 
     def __init__(self,
                  model,#An encoder followed by a projector
@@ -668,8 +655,9 @@ class TrainBT:
                  model_type,
                  wd,
                  device,
+                 load_learner_path=None, #Path to load learner from (optional)
                  experiment_dir=None, #Where to save model checkpoints (optional)
-                 save_interval=None #How often to save model checkpoints (optional)
+                 save_interval=None #How often to save model checkpoints (optional). 
 
                  ):
 
@@ -698,11 +686,13 @@ class TrainBT:
 
         learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=cbs
                      )
+        
+        if self.load_learner_path: learn.load(self.load_learner_path,with_opt=True)
 
         return learn
     
-    def bt_transfer_learning(self,freeze_epochs:int=1,epochs:int=1):
-        """If the encoder is alreaady pretrained, we can do transfer learning.
+    def bt_transfer_learning(self,freeze_epochs:int=1,epochs:int=1,end_epoch:int=1):
+        """If the encoder is already pretrained, we can do transfer learning.
             Freeze encoder, train projector for a few epochs, then unfreeze and train all. 
         """
 
@@ -712,18 +702,23 @@ class TrainBT:
         self.learn.unfreeze()
         test_grad_on(self.learn.model)
         lrs = self.learn.lr_find()
-        self.learn.fit_one_cycle(epochs, lrs.valley)
+        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=InterruptCallback(end_epoch)
+                                )
 
-        return self.learn.model
-
-    def bt_learning(self,epochs:int=1):
+    def bt_learning(self,epochs:int=1,end_epoch:int=1):
         """If the encoder is not pretrained, we can do normal training.
         """
         
         lrs = self.learn.lr_find()
-        self.learn.fit_one_cycle(epochs, lrs.valley)
+        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=InterruptCallback(end_epoch))
+    
+    def continue_bt_learning(self,epochs:int=1,start_epoch:int=0):
+        """Resume training with `fit_one_cycle` after loading a learner.
+        """
+        
+        test_ne(self.load_learner_path,None)
 
-        return self.learn.model
+        self.learn.fit_one_cycle(epochs,start_epoch=start_epoch,cbs=InterruptCallback(end_epoch))
 
 def train_bt(model,#An encoder followed by a projector
             dls,
@@ -735,7 +730,9 @@ def train_bt(model,#An encoder followed by a projector
             wd,
             epochs,
             freeze_epochs,
-            weight_type,
+            start_epoch,
+            end_epoch,
+            weight_type, #random, pretrained, partialtrained
             device,
             experiment_dir=None, #Where to save model checkpoints (optional)
             save_interval=None #How often to save model checkpoints (optional)
@@ -746,16 +743,23 @@ def train_bt(model,#An encoder followed by a projector
                         device=device,experiment_dir=experiment_dir,save_interval=save_interval
                         )
 
-    if weight_type!='random':
-        model=bt_trainer.bt_transfer_learning(freeze_epochs=freeze_epochs,epochs=epochs)
-    else:
-        model=bt_trainer.bt_learning(epochs=epochs)
+    if weight_type=='pretrained':
+        bt_trainer.bt_transfer_learning(freeze_epochs=freeze_epochs,epochs=epochs,end_epoch=end_epoch)
 
-    return model
+    elif weight_type=='partialtrained':
+        bt_trainer.continue_bt_learning(epochs=epochs,start_epoch=start_epoch,end_epoch=end_epoch)
+    
+    elif weight_type=='random':
+        bt_trainer.bt_learning(epochs=epochs,end_epoch=end_epoch)
+
+    else: raise Exception("Invalid weight_type")
+
+
+    return bt_trainer.learn
 
 
 
-# %% ../nbs/base_model.ipynb 27
+# %% ../nbs/base_model.ipynb 26
 def run_bt_experiment(Description,
                       config,
                       save_interval,
@@ -767,7 +771,7 @@ def run_bt_experiment(Description,
 
     # Initialize the device for model training (CUDA or CPU)
     device = default_device()
-
+    
     # Construct the model based on the configuration
     # This involves selecting the architecture and setting model-specific hyperparameters.
     encoder = resnet_arch_to_encoder(arch=config.arch, weight_type=config.weight_type)
@@ -779,9 +783,10 @@ def run_bt_experiment(Description,
     # Set up data augmentation pipelines as specified in the configuration
     bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)
 
+    test_eq(config.weight_type in ['random', 'pretrained', 'partialtrained'],True)
 
-    # Train the model with the specified configurations and save checkpoints as defined above
-    model = train_bt(model=model,
+    # Train the model with the specified configurations and save `learn` checkpoints
+    learn = train_bt(model=model,
                     dls=dls,
                     bt_aug_pipelines=bt_aug_pipelines,
                     lmb=config.lmb,
@@ -791,6 +796,7 @@ def run_bt_experiment(Description,
                     wd=config.wd,
                     epochs=config.epochs,
                     freeze_epochs=config.freeze_epochs,
+                    start_epoch=config.start_epoch,
                     weight_type=config.weight_type,
                     device=device,
                     experiment_dir=experiment_dir,

@@ -4,7 +4,8 @@
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
            'load_config', 'get_ssl_dls', 'get_supervised_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder',
            'generate_config_hash', 'create_experiment_directory', 'save_configuration', 'save_metadata_file',
-           'update_experiment_index', 'get_latest_commit_hash', 'setup_experiment']
+           'update_experiment_index', 'get_latest_commit_hash', 'setup_experiment', 'InterruptCallback',
+           'SaveLearnerCheckpoint']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
@@ -375,4 +376,31 @@ def setup_experiment(config,base_dir,Description:str):
     print(f"The git hash is: {git_commit_hash}")
 
     return experiment_dir, experiment_hash,git_commit_hash
+
+
+# %% ../nbs/utils.ipynb 15
+class InterruptCallback(Callback):
+    def __init__(self, interrupt_epoch):
+        super().__init__()
+        self.interrupt_epoch = interrupt_epoch
+
+    def before_epoch(self):
+        if self.epoch == self.interrupt_epoch:
+            print(f"Interrupting training before starting epoch {self.interrupt_epoch}")
+            raise CancelFitException
+
+class SaveLearnerCheckpoint(Callback):
+    def __init__(self, experiment_dir, save_interval=250, with_opt=True):
+        self.experiment_dir = experiment_dir
+        self.save_interval = save_interval
+        self.with_opt = with_opt  # Decide whether to save optimizer state as well.
+
+    def after_epoch(self):
+        if (self.epoch+1) % self.save_interval == 0:
+            print(f"Saving model and learner state at epoch {self.epoch}")
+            checkpoint_filename = f"learner_checkpoint_epoch_{self.epoch}"
+            checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
+            # Save the entire learner object, including the model's parameters and optimizer state.
+            self.learn.save(checkpoint_path, with_opt=self.with_opt)
+            print(f"Checkpoint saved to {checkpoint_path}")
 
