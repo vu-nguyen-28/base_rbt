@@ -13,7 +13,7 @@ lmb: 0.0001220703125 #0.001953125 #this comes from ps generally
 sparsity_level: none
 wd: 0.0000015 #1.5*1e-6 which is the deault in the paper. We may have to ablate as a control to our idea though
 freeze_epochs: none
-epochs: 1000  # epochs to train BT variant
+epochs: 500  # epochs to train BT variant
 start_epoch: 0
 end_epoch: 99
 

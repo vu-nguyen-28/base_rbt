@@ -712,7 +712,7 @@ class TrainBT:
         lrs = self.learn.lr_find()
         self.learn.fit_one_cycle(epochs, lrs.valley,cbs=InterruptCallback(end_epoch))
     
-    def continue_bt_learning(self,epochs:int=1,start_epoch:int=0):
+    def continue_bt_learning(self,epochs:int=1,start_epoch:int=0,end_epoch:int=1):
         """Resume training with `fit_one_cycle` after loading a learner.
         """
         
