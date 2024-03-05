@@ -17,9 +17,8 @@ def label_func(x):
     # Example label function, modify it according to your dataset's structure
     return x.parent.name
 
-def get_bt_dermnet_train_dls(bs,size,device,num_workers=12):
+def get_bt_dermnet_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
     #NOTE: assume unzip like: !unzip -q -o "/content/drive/My Drive/dermnet.zip" -d "/content/drive/My Drive/DermNetDataset"
-
 
     item_tfms = [Resize(size)]
     
@@ -27,7 +26,9 @@ def get_bt_dermnet_train_dls(bs,size,device,num_workers=12):
     base_test_dir = "/content/drive/MyDrive/DermNetDataset/test"
     fnames_train = get_image_files(base_train_dir)
     fnames_test = get_image_files(base_test_dir)
-    fnames = fnames_train + fnames_test
+    fnames = fnames_train + fnames_test #we are doing SSL so we can use all the data
+
+    n = int(len(fnames)*pct_dataset)-1
 
     test_eq(len(fnames_train), 15557)
     test_eq(len(fnames_test),4002)
@@ -37,16 +38,24 @@ def get_bt_dermnet_train_dls(bs,size,device,num_workers=12):
     # Create the combined DataLoader
     dls = ImageDataLoaders.from_path_func(
         path=".",
-        fnames=fnames,
+        fnames=fnames[0:n],
         label_func=label_func,
         bs=bs,
         item_tfms=item_tfms,
         valid_pct=0,
         device=device,
         num_workers=num_workers*(device=='cuda')
-                                )
+                                          )
 
     
+    
+    if pct_dataset == 1.0:
+        test_eq(len(dls.train_ds,19559))
+
+    else:
+        print('warning: we are not using whole dataset')
+        print(f'len(dls.train_ds)={len(dls.train_ds)}')
+
     return dls
 
 

@@ -11,7 +11,7 @@ from fastai.vision.all import *
 # from self_supervised.layers import *
 from .utils import *
 
-# %% ../nbs/cifar10_dataloading.ipynb 6
+# %% ../nbs/cifar10_dataloading.ipynb 5
 def get_bt_cifar10_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
     
     n = int(len(fnames_train)*pct_dataset)-1
