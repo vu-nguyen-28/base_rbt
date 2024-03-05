@@ -2,7 +2,11 @@ website:
   sidebar:
     contents:
       - index.ipynb
-      - LinearModelCifarHacking.ipynb
-      - RandomGaussianBlurHacking.ipynb
+      - Untitled-1.ipynb
       - base_lf.ipynb
       - base_model.ipynb
+      - base_supervised.ipynb
+      - cifar10_dataloading.ipynb
+      - dermnet_dataloading.ipynb
+      - helper.ipynb
+      - utils.ipynb
