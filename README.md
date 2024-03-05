@@ -16,6 +16,4 @@ After installing, import like this:
 from base_rbt.all import *
 ```
 
-    ModuleNotFoundError: No module named 'base_rbt.base_linear'
-
 We also need some other libraries:
