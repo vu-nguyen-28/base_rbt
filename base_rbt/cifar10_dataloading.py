@@ -15,8 +15,7 @@ from .utils import *
 def get_bt_cifar10_train_dls(bs, size, device, pct_dataset=1.0, num_workers=12):
     path,fnames_train, labels_train = load_cifar10_train_data(pct_dataset)
     test_eq(len(labels_train), len(fnames_train))
-    n = len(fnames_train) - 1
-    dls = ImageDataLoaders.from_lists(path, fnames_train[0:n], labels_train[0:n], bs=bs, item_tfms=[Resize(size=size)],
+    dls = ImageDataLoaders.from_lists(path, fnames_train, labels_train, bs=bs, item_tfms=[Resize(size=size)],
                                       valid_pct=0.0, num_workers=num_workers, device=device)
     if pct_dataset == 1.0:
         test_eq(len(dls.train), 50000)

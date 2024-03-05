@@ -28,7 +28,7 @@ def get_bt_dermnet_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
     fnames_test = get_image_files(base_test_dir)
     fnames = fnames_train + fnames_test #we are doing SSL so we can use all the data
 
-    n = int(len(fnames)*pct_dataset)-1
+    n = int(len(fnames)*pct_dataset)
 
     test_eq(len(fnames_train), 15557)
     test_eq(len(fnames_test),4002)
