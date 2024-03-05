@@ -5,13 +5,15 @@ __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everyth
            'load_config', 'get_ssl_dls', 'get_supervised_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder',
            'generate_config_hash', 'create_experiment_directory', 'save_configuration', 'save_metadata_file',
            'update_experiment_index', 'get_latest_commit_hash', 'setup_experiment', 'InterruptCallback',
-           'SaveLearnerCheckpoint']
+           'SaveLearnerCheckpoint', 'extract_epoch', 'find_largest_epoch_file', 'return_max_filename',
+           'get_highest_epoch_path', 'get_experiment_state']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
 from fastai.vision.all import *
 import torch
 from torchvision.models import resnet18, resnet34, resnet50
+from typing import Literal
 import random 
 import os 
 import yaml
@@ -24,6 +26,7 @@ from nbdev import config
 import json
 import hashlib
 import subprocess
+import re
 
 
 # %% ../nbs/utils.ipynb 4
@@ -69,11 +72,12 @@ def seed_everything(seed=42):
 # %% ../nbs/utils.ipynb 7
 def adjust_config_with_derived_values(config):
     # Adjust n_in based on dataset
-    if config.dataset == 'cifar10':
-        config.n_in = 3
 
     # Adjust encoder_dimension based on architecture
-    if config.arch == 'resnet18':
+        
+    if config.arch == 'smallres':
+        config.encoder_dimension = 512
+    elif config.arch == 'resnet18':
         config.encoder_dimension = 512
     elif config.arch == 'resnet34':
         config.encoder_dimension = 512
@@ -95,7 +99,7 @@ def load_config(file_path):
     return config
 
 # %% ../nbs/utils.ipynb 8
-def get_ssl_dls(dataset,bs,size,device):
+def get_ssl_dls(dataset,bs,size,device,pct_dataset=1.0):
     # Define the base package name in a variable for easy modification
 
     try:
@@ -121,7 +125,7 @@ def get_ssl_dls(dataset,bs,size,device):
     
     # Proceed to call the function with arguments from the config
     try:
-        dls_train = data_loader_func(bs=bs,size=size,device=device)
+        dls_train = data_loader_func(bs=bs,size=size,device=device,pct_dataset=pct_dataset)
     except Exception as e:
         # Handle any errors that occur during the function call
         raise RuntimeError(f"An error occurred while calling '{func_name}' from '{module_path}': {e}") from None
@@ -186,50 +190,82 @@ def get_supervised_dls(dataset,bs,bs_test,size,device):
 
     
 
-# %% ../nbs/utils.ipynb 10
+# %% ../nbs/utils.ipynb 11
+class _SmallRes(nn.Module):
+    def __init__(self, num_classes=1000):
+        super().__init__()
+        # First layer
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        # Minimal Intermediate layer
+        self.intermediate_conv = nn.Conv2d(64, 512, kernel_size=1, stride=1, bias=False)
+        self.intermediate_bn = nn.BatchNorm2d(512)
+        self.intermediate_relu = nn.ReLU(inplace=True)
+
+        # Last two layers
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        # First layer
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        # Minimal Intermediate layer
+        x = self.intermediate_conv(x)
+        x = self.intermediate_bn(x)
+        x = self.intermediate_relu(x)
+
+        # Last two layers
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+
+        return x
+
+
+# %% ../nbs/utils.ipynb 12
 @torch.no_grad()
 def get_resnet_encoder(model,n_in=3):
     model = create_body(model, n_in=n_in, pretrained=False, cut=len(list(model.children()))-1)
     model.add_module('flatten', torch.nn.Flatten())
     return model
 
-# @torch.no_grad()
-# def create_resnet50_encoder(weight_type):
-
-#     #pretrained=True if 'weight_type' in ['bt_pretrain', 'supervised_pretrain'] else False
-
-#     if weight_type == 'bt_pretrain': model = torch.hub.load('facebookresearch/barlowtwins:main', 'resnet50')
-    
-#     elif weight_type == 'no_pretrain': model = resnet50()
-
-#     elif weight_type == 'supervised_pretrain': model = resnet50(weights='IMAGENET1K_V2')
-
-#     #ignore the 'pretrained=False' argument here. Just means we use the weights above 
-#     #(which themselves are either pretrained or not)
-#     encoder = get_resnet_encoder(model)
-
-#     return encoder
 
 @torch.no_grad()
-def resnet_arch_to_encoder(arch:str,weight_type='random'):
-    """Given resnet architecture, return the encoder. Works for 3 channels.
-       The 'weight_type' argument is used to specify whether the model is pretrained or not
-    """
+def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'resnet50'],
+                           weight_type: Literal['random', 'partialtrained', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained'] = 'random'):
+    """Given a ResNet architecture, return the encoder configured for 3 input channels.
+       The 'weight_type' argument specifies the weight initialization strategy.
 
+    Args:
+        arch (Literal['smallres','resnet18', 'resnet34', 'resnet50']): The architecture of the ResNet.
+        weight_type (Literal['random', 'partialtrained', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained']): Specifies the weight initialization strategy. Defaults to 'random'.
+
+    Returns:
+        Encoder: An encoder configured for 3 input channels and specified architecture.
+    """
+    
     n_in=3
 
-    test_eq(arch in ['resnet18','resnet34','resnet50'],True)
-    test_eq(weight_type in ['bt_pretrained','supervised_pretrained','random'],True)
 
-    if weight_type == 'bt_pretrained': test_eq(arch,'resnet50')
+    if weight_type == 'imgnet_bt_pretrained': test_eq(arch,'resnet50')
+
+    #This means we will load the state_dict from a path.
+    if weight_type == 'partialtrained': weight_type = 'random'
 
     
     if arch == 'resnet50':
 
-        if weight_type == 'bt_pretrained':
+        if weight_type == 'imgnet_bt_pretrained':
             _model = torch.hub.load('facebookresearch/barlowtwins:main', 'resnet50')
 
-        elif weight_type == 'supervised_pretrained':
+        elif weight_type == 'imgnet_sup_pretrained':
             _model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 
         elif weight_type == 'random':
@@ -238,18 +274,22 @@ def resnet_arch_to_encoder(arch:str,weight_type='random'):
 
     elif arch == 'resnet34':
 
-        if weight_type == 'supervised_pretrained':
+        if weight_type == 'imgnet_sup_pretrained':
             _model = resnet34(weights=ResNet34_Weights.IMAGENET1K_V1)
 
         elif weight_type == 'random':
             _model = resnet34() 
 
     elif arch == 'resnet18':
-        if weight_type == 'supervised_pretrained':
+        if weight_type == 'imgnet_sup_pretrained':
             _model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1) 
 
         elif weight_type == 'random':
             _model = resnet18()
+
+    elif arch == 'smallres':
+        _model = _SmallRes()
+    
         
     else: raise ValueError('Architecture not recognized')
 
@@ -257,7 +297,7 @@ def resnet_arch_to_encoder(arch:str,weight_type='random'):
 
 
 
-# %% ../nbs/utils.ipynb 11
+# %% ../nbs/utils.ipynb 13
 def generate_config_hash(config):
     """
     Generates a unique hash for a given experiment configuration.
@@ -283,7 +323,7 @@ def generate_config_hash(config):
     return short_hash
 
 
-# %% ../nbs/utils.ipynb 14
+# %% ../nbs/utils.ipynb 16
 def create_experiment_directory(base_dir, config):
     # Generate a unique hash for the configuration
     unique_hash = generate_config_hash(config)
@@ -318,14 +358,13 @@ def save_configuration(config, experiment_dir):
 
 
 
-def save_metadata_file(experiment_dir, git_commit_hash, Description):
+def save_metadata_file(experiment_dir, git_commit_hash):
     """
-    Saves a metadata file with the Git commit hash, start/end times, and a description for the experiment.
+    Saves a metadata file with the Git commit hash
     """
     metadata_file_path = os.path.join(experiment_dir, 'metadata.yaml')
     metadata_content = {
         "Git Commit Hash": git_commit_hash,
-        "Description": Description
     }
 
     with open(metadata_file_path, 'w') as file:
@@ -360,7 +399,7 @@ def get_latest_commit_hash(repo_path):
         print(f"Error obtaining latest commit hash: {e}")
         return None
 
-def setup_experiment(config,base_dir,Description:str):
+def setup_experiment(config,base_dir):
 
     # Create a unique directory for this experiment based on its configuration
     # This directory will contain all artifacts related to the experiment, such as model checkpoints and logs.
@@ -378,7 +417,7 @@ def setup_experiment(config,base_dir,Description:str):
     return experiment_dir, experiment_hash,git_commit_hash
 
 
-# %% ../nbs/utils.ipynb 15
+# %% ../nbs/utils.ipynb 17
 class InterruptCallback(Callback):
     def __init__(self, interrupt_epoch):
         super().__init__()
@@ -390,17 +429,126 @@ class InterruptCallback(Callback):
             raise CancelFitException
 
 class SaveLearnerCheckpoint(Callback):
-    def __init__(self, experiment_dir, save_interval=250, with_opt=True):
+    def __init__(self, experiment_dir,start_epoch=0, save_interval=250, with_opt=True):
         self.experiment_dir = experiment_dir
+        self.start_epoch = start_epoch
         self.save_interval = save_interval
         self.with_opt = with_opt  # Decide whether to save optimizer state as well.
 
     def after_epoch(self):
-        if (self.epoch+1) % self.save_interval == 0:
+        if (self.epoch+1) % self.save_interval == 0 and self.epoch>=self.start_epoch:
             print(f"Saving model and learner state at epoch {self.epoch}")
+   
             checkpoint_filename = f"learner_checkpoint_epoch_{self.epoch}"
             checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
             # Save the entire learner object, including the model's parameters and optimizer state.
             self.learn.save(checkpoint_path, with_opt=self.with_opt)
             print(f"Checkpoint saved to {checkpoint_path}")
 
+
+# %% ../nbs/utils.ipynb 19
+def extract_epoch(filename):
+    """Extract the epoch number from a filename."""
+    pattern = re.compile(r"_epoch_(\d+)\.pt[h]?")
+    match = pattern.search(filename)
+    return int(match.group(1)) if match else None
+
+def find_largest_epoch_file(directory_path):
+    """Find the file with the largest epoch number in a directory."""
+    max_epoch = -1
+    largest_epoch_file = None
+
+    for filename in os.listdir(directory_path):
+        epoch = extract_epoch(filename)
+        if epoch is not None and epoch > max_epoch:
+            max_epoch = epoch
+            largest_epoch_file = filename
+
+    return largest_epoch_file
+
+def return_max_filename(filename1, filename2):
+    # Improved handling for initial cases
+    if not filename1:
+        return filename2
+    if not filename2:
+        return filename1
+
+    # Extract epochs and compare
+    epoch1 = extract_epoch(filename1)
+    epoch2 = extract_epoch(filename2)
+
+    # Return the filename with the larger epoch number
+    return filename1 if epoch1 >= epoch2 else filename2
+
+
+def get_highest_epoch_path(base_dir, config):
+    """
+    Check in all experiment directories derived from the config and return the path
+    to the file with the highest epoch along with its experiment directory.
+    """
+
+    experiment_index_path = base_dir + '/experiment_index.json'
+
+    try: 
+        # Load the JSON data from the file
+        with open(experiment_index_path, 'r') as file:
+            experiment_index = json.load(file)
+
+    except FileNotFoundError:
+        return None,None
+
+
+    # Build the main part of the experiment directory from base_dir and config
+    _experiment_dir, _ = create_experiment_directory(base_dir, config)
+    base_experiment_dir = os.path.dirname(_experiment_dir)  # Strip the hash part
+
+    print(f"looking in {base_experiment_dir} for highest epoch saved")
+
+    _max_file_path = None
+    _max_experiment_dir = None  # To keep track of the directory of the max file
+
+    for k in list(experiment_index.keys()):
+        _experiment_dir = experiment_index[k]['experiment_dir']
+        if base_experiment_dir not in _experiment_dir:
+            continue
+        _x = find_largest_epoch_file(_experiment_dir)
+        if _x:
+            _x_path = os.path.join(_experiment_dir, _x)
+            # Update max_file_path and the corresponding experiment_dir if a new max is found
+            if not _max_file_path or return_max_filename(_x_path, _max_file_path) == _x_path:
+                _max_file_path = _x_path
+                _max_experiment_dir = _experiment_dir
+    
+
+    print(f"Found max file path: {_max_file_path} and max experiment dir: {_max_experiment_dir}")
+    
+    return _max_file_path.split('.')[0], _max_experiment_dir  # Return both file path and directory
+
+
+
+def get_experiment_state(config,base_dir):
+    """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
+       Basically this tells us how to continue learning (e.g. we have run two sessions for 
+       100 epochs, and want to continue for another 100 epochs). Return values are
+       None if we are starting from scratch.
+    """
+
+    load_learner_path, _  = get_highest_epoch_path(base_dir, config)
+
+    #TODO:
+    #We can get start_epoch, interrupt epoch from `get_highest_epoch_path` + save_interval (may be None!)
+    start_epoch=0 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
+    interrupt_epoch = start_epoch + config.save_interval
+
+    #We can also get the learn_type from the load_learner_path + weight_type. 
+    
+    if config.weight_type == 'random':
+        learn_type = 'standard'
+    
+    elif 'pretrained' in config.weight_type:
+        learn_type = 'transfer_learning'
+
+    learn_type = learn_type if load_learner_path is None else 'continue_learning'
+
+    return load_learner_path, learn_type, start_epoch, interrupt_epoch
+    

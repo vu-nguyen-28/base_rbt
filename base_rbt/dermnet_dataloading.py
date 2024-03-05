@@ -36,12 +36,12 @@ def get_bt_dermnet_train_dls(bs,size,device,num_workers=12):
 
     # Create the combined DataLoader
     dls = ImageDataLoaders.from_path_func(
-        path=".", # Since paths are absolute, the base path is irrelevant here, just use current directory
+        path=".",
         fnames=fnames,
         label_func=label_func,
         bs=bs,
         item_tfms=item_tfms,
-        valid_pct=0, # Set to 0 if you don't want a validation set, adjust as needed
+        valid_pct=0,
         device=device,
         num_workers=num_workers*(device=='cuda')
                                 )

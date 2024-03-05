@@ -11,21 +11,28 @@ from fastai.vision.all import *
 # from self_supervised.layers import *
 from .utils import *
 
-# %% ../nbs/cifar10_dataloading.ipynb 5
-def get_bt_cifar10_train_dls(bs,size,device,num_workers=12):
-  
-    return ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
+# %% ../nbs/cifar10_dataloading.ipynb 6
+def get_bt_cifar10_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
+    
+    n = int(len(fnames_train)*pct_dataset)-1
+
+    return ImageDataLoaders.from_lists(path, fnames_train[0:n], labels_train[0:n],bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )
 
 
-def get_supervised_cifar10_train_dls(bs,size,device,num_workers=12):
+def get_supervised_cifar10_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
+
+    n = int(len(fnames_train)*pct_dataset)-1
 
     return ImageDataLoaders.from_lists(path, fnames_train, labels_train,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )
 
-def get_supervised_cifar10_test_dls(bs,size,device,num_workers=12):
+def get_supervised_cifar10_test_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
+    
+    n = int(len(fnames_train)*pct_dataset)-1
+    
     return ImageDataLoaders.from_lists(path, fnames_test, labels_test,bs=bs, item_tfms=[Resize(size=size)], #batch_tfms=[ToTensor(), IntToFloatTensor()],
                                   valid_pct=0.0,num_workers=num_workers,device=device,seed=seed
                                       )

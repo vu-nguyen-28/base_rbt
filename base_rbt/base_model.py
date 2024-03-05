@@ -4,11 +4,10 @@
 __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianBlur', 'RandomCenterDropout', 'get_BT_batch_augs',
            'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines', 'get_bt_cifar10_aug_pipelines',
            'helper_get_bt_augs', 'get_bt_imagenet_aug_pipelines', 'get_bt_dermnet_aug_pipelines',
-           'get_bt_aug_pipelines', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'P2BarlowTwinsModel',
-           'create_p2barlow_twins_model', 'P3BarlowTwinsModel', 'create_p3barlow_twins_model', 'P4BarlowTwinsModel',
-           'create_p4barlow_twins_model', 'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse',
-           'lf_bt_group_norm_sparse', 'lf_bt_fun', 'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch',
-           'TrainBT', 'train_bt', 'run_bt_experiment']
+           'get_bt_aug_pipelines', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'lf_bt',
+           'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse', 'lf_bt_fun',
+           'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'BarlowTrainer', 'main_bt_train',
+           'main_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
 import self_supervised
@@ -330,43 +329,11 @@ class BarlowTwins(Callback):
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
 # %% ../nbs/base_model.ipynb 10
-#Here we give the model API for `new idea` or `RAT` -> i.e. two projector networks
-
-#TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
-#sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
-class P2BarlowTwinsModel(Module):
-    """An encoder followed by a projector
-    """
-    def __init__(self,encoder,projector,projector2):
-        self.encoder = encoder
-        self.projector = projector
-        self.projector2 = projector2
-        
-    def forward(self,x): 
-        tem = self.encoder(x)
-        return self.projector(tem),self.projector2(tem)
-
-def create_p2barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
-    "Create Barlow Twins model"
-    n_in  = in_channels(encoder)
-    with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
-    
-    projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
-    apply_init(projector)
-    
-    projector2 = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
-    apply_init(projector2)
-    
-    
-    return P2BarlowTwinsModel(encoder, projector,projector2)
-
-
-# %% ../nbs/base_model.ipynb 11
 #We want access to both representation and projection
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
 #sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
-class P3BarlowTwinsModel(Module):
+class BarlowTwinsModel(Module):
     """An encoder followed by a projector
     """
     def __init__(self,encoder,projector):
@@ -380,7 +347,7 @@ class P3BarlowTwinsModel(Module):
     def __str__(self):
         return 'forward returns tuple of (encoder(x),projector(encoder(x)))'
 
-def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
+def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
     "Create Barlow Twins model"
     n_in  = in_channels(encoder)
     with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
@@ -389,42 +356,11 @@ def create_p3barlow_twins_model(encoder, hidden_size=256, projection_size=128, b
     apply_init(projector)
     
  
-    return P3BarlowTwinsModel(encoder, projector)
+    return BarlowTwinsModel(encoder, projector)
 
 
 
-# %% ../nbs/base_model.ipynb 12
-class P4BarlowTwinsModel(Module):
-    """An encoder followed by a projector
-    """
-    def __init__(self,encoder,encoder2,projector,projector2):
-        self.encoder = encoder
-        self.encoder2 = encoder2
-        self.projector = projector
-        self.projector2 = projector2
-        
-    def forward(self,x):
-        
-        #If we have multiple GPUs can take advantage of it here...
-        tem,tem2 = self.encoder(x),self.encoder2(x)
-        return self.projector(tem),self.projector2(tem2)
-
-def create_p4barlow_twins_model(encoder,encoder2, hidden_size=256, projection_size=128, bn=True, nlayers=3):
-    "Create Barlow Twins model"
-    n_in  = in_channels(encoder)
-    with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
-    
-    projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
-    apply_init(projector)
-    
-    projector2 = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
-    apply_init(projector2)
-    
-    
-    return P4BarlowTwinsModel(encoder,encoder2, projector,projector2)
-
-
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 13
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -438,7 +374,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 16
+# %% ../nbs/base_model.ipynb 14
 def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -471,7 +407,7 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
     
 
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 15
 def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -501,7 +437,7 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 16
 def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -535,7 +471,7 @@ def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 19
+# %% ../nbs/base_model.ipynb 17
 def lf_bt_fun(pred,I,lmb,sparsity_level,
                       ):
 
@@ -569,7 +505,7 @@ def lf_bt_fun(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 18
 def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
                            ):
 
@@ -597,7 +533,7 @@ def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 21
+# %% ../nbs/base_model.ipynb 19
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
@@ -625,11 +561,11 @@ def lf(self:BarlowTwins, pred,*yb):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 20
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 22
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -641,9 +577,9 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 25
-class TrainBT:
-    "Train model using BT and optionally save checkpoints."
+# %% ../nbs/base_model.ipynb 23
+class BarlowTrainer:
+    "Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training."
 
     def __init__(self,
                  model,#An encoder followed by a projector
@@ -655,8 +591,10 @@ class TrainBT:
                  model_type,
                  wd,
                  device,
+                 num_it=100, #Number of iterations to run lr_find for.
                  load_learner_path=None, #Path to load learner from (optional)
                  experiment_dir=None, #Where to save model checkpoints (optional)
+                 start_epoch=0, #Which epoch to start from
                  save_interval=None #How often to save model checkpoints (optional). 
 
                  ):
@@ -681,8 +619,6 @@ class TrainBT:
                            )
               ]
 
-        if self.experiment_dir is not None:
-            cbs.append(SaveLearnerCheckpoint(self.experiment_dir,self.save_interval))
 
         learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=cbs
                      )
@@ -691,7 +627,23 @@ class TrainBT:
 
         return learn
     
-    def bt_transfer_learning(self,freeze_epochs:int=1,epochs:int=1,end_epoch:int=1):
+    def _get_training_cbs(self,interrupt_epoch):
+        "Add train-time cbs to learner. Note e.g. we don't want these in operation when we're doing lr_find."
+
+        
+        cbs=[InterruptCallback(interrupt_epoch)]
+        if self.experiment_dir:
+            cbs.append(SaveLearnerCheckpoint(experiment_dir=self.experiment_dir,
+                                             start_epoch = self.start_epoch,
+                                             save_interval=self.save_interval,
+                                             )
+                      )
+            
+        return cbs
+                
+
+    
+    def bt_transfer_learning(self,freeze_epochs:int,epochs:int,interrupt_epoch:int):
         """If the encoder is already pretrained, we can do transfer learning.
             Freeze encoder, train projector for a few epochs, then unfreeze and train all. 
         """
@@ -701,92 +653,76 @@ class TrainBT:
         self.learn.fit(freeze_epochs)
         self.learn.unfreeze()
         test_grad_on(self.learn.model)
-        lrs = self.learn.lr_find()
-        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=InterruptCallback(end_epoch)
+        lrs = self.learn.lr_find(num_it=self.num_it)
+
+        
+        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=self._get_training_cbs(interrupt_epoch)
                                 )
 
-    def bt_learning(self,epochs:int=1,end_epoch:int=1):
+    def bt_learning(self,epochs:int,interrupt_epoch:int):
         """If the encoder is not pretrained, we can do normal training.
         """
-        
-        lrs = self.learn.lr_find()
-        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=InterruptCallback(end_epoch))
+
+        lrs = self.learn.lr_find(num_it=self.num_it)
+
+        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=self._get_training_cbs(interrupt_epoch))
     
-    def continue_bt_learning(self,epochs:int=1,start_epoch:int=0,end_epoch:int=1):
+    def continue_bt_learning(self,epochs:int,start_epoch:int,interrupt_epoch:int):
         """Resume training with `fit_one_cycle` after loading a learner.
         """
         
         test_ne(self.load_learner_path,None)
 
-        self.learn.fit_one_cycle(epochs,start_epoch=start_epoch,cbs=InterruptCallback(end_epoch))
+        self.learn.fit_one_cycle(epochs,start_epoch=start_epoch,cbs=self._get_training_cbs(interrupt_epoch))
 
-def train_bt(model,#An encoder followed by a projector
-            dls,
-            bt_aug_pipelines,
-            lmb,
-            sparsity_level,
-            n_in,
-            model_type,
-            wd,
-            epochs,
-            freeze_epochs,
-            start_epoch,
-            end_epoch,
-            weight_type, #random, pretrained, partialtrained
-            device,
-            experiment_dir=None, #Where to save model checkpoints (optional)
-            save_interval=None #How often to save model checkpoints (optional)
-            ):
-    
-    bt_trainer = TrainBT(model=model,dls=dls,bt_aug_pipelines=bt_aug_pipelines,
-                        lmb=lmb,sparsity_level=sparsity_level,n_in=n_in,model_type=model_type,wd=wd,
-                        device=device,experiment_dir=experiment_dir,save_interval=save_interval
-                        )
+    def train(self,learn_type, freeze_epochs:int,epochs:int,start_epoch:int,interrupt_epoch:int):
+        """Train model using BT
+        """
+        if learn_type == 'transfer_learning':
+            
+            self.bt_transfer_learning(freeze_epochs=freeze_epochs,epochs=epochs,interrupt_epoch=interrupt_epoch)
 
-    if weight_type=='pretrained':
-        bt_trainer.bt_transfer_learning(freeze_epochs=freeze_epochs,epochs=epochs,end_epoch=end_epoch)
+        elif learn_type=='continue_learning':
+            self.continue_bt_learning(epochs=epochs,start_epoch=start_epoch,interrupt_epoch=interrupt_epoch)
+        
+        elif learn_type=='standard':
+            self.bt_learning(epochs=epochs,interrupt_epoch=interrupt_epoch)
 
-    elif weight_type=='partialtrained':
-        bt_trainer.continue_bt_learning(epochs=epochs,start_epoch=start_epoch,end_epoch=end_epoch)
-    
-    elif weight_type=='random':
-        bt_trainer.bt_learning(epochs=epochs,end_epoch=end_epoch)
+        else: raise Exception("Invalid weight_type")
 
-    else: raise Exception("Invalid weight_type")
+        return self.learn
 
 
-    return bt_trainer.learn
+# %% ../nbs/base_model.ipynb 24
+def main_bt_train(config,
+        start_epoch = 0,
+        interrupt_epoch = 100,
+        load_learner_path=None,
+        learn_type = 'standard', #can be 'standard', 'transfer_learning', or 'continue_learning'
+        experiment_dir=None,
+        ):
+    "Basically map from config to training a BT model. Optionally save checkpoints of learner."
 
-
-
-# %% ../nbs/base_model.ipynb 26
-def run_bt_experiment(Description,
-                      config,
-                      save_interval,
-                      base_dir,
-                      experiment_dir, 
-                      experiment_hash,
-                      git_commit_hash,
-                      ):
 
     # Initialize the device for model training (CUDA or CPU)
     device = default_device()
-    
+
     # Construct the model based on the configuration
     # This involves selecting the architecture and setting model-specific hyperparameters.
     encoder = resnet_arch_to_encoder(arch=config.arch, weight_type=config.weight_type)
-    model = create_p3barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)
+    
+    model = create_barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)
 
     # Prepare data loaders according to the dataset specified in the configuration
-    dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device)
-    
+    dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device,pct_dataset=config.pct_dataset)
+
     # Set up data augmentation pipelines as specified in the configuration
     bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)
 
-    test_eq(config.weight_type in ['random', 'pretrained', 'partialtrained'],True)
-
     # Train the model with the specified configurations and save `learn` checkpoints
-    learn = train_bt(model=model,
+
+    #Setup the bt trainer. basically a `Learner` with a few extra bells and whistles
+    bt_trainer = BarlowTrainer(model=model,
                     dls=dls,
                     bt_aug_pipelines=bt_aug_pipelines,
                     lmb=config.lmb,
@@ -794,18 +730,42 @@ def run_bt_experiment(Description,
                     n_in=config.n_in,
                     model_type=config.model_type,
                     wd=config.wd,
-                    epochs=config.epochs,
-                    freeze_epochs=config.freeze_epochs,
-                    start_epoch=config.start_epoch,
-                    end_epoch=config.end_epoch,
-                    weight_type=config.weight_type,
+                    num_it=config.num_it,
                     device=device,
+                    load_learner_path=load_learner_path,
                     experiment_dir=experiment_dir,
-                    save_interval=save_interval
-                    )
+                    start_epoch=start_epoch,
+                    save_interval=config.save_interval
+                                    )
+
+    # Train the model with the specified configurations and save `learn` checkpoints
+    learn = bt_trainer.train(learn_type=learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs,start_epoch=start_epoch,interrupt_epoch=interrupt_epoch)
+    return learn
+
+
+# %% ../nbs/base_model.ipynb 25
+def main_bt_experiment(config,
+                      base_dir,
+                      ):
+    """Run several epochs of the experiment as defined in the config and where we are up to. e.g. epoch 0, or resuming
+    at epoch 99 etc. Basically a stateful version of `main_bt_train` that can be resumed. And saving.
+    """
+    
+        
+    experiment_dir, experiment_hash,git_commit_hash = setup_experiment(config,base_dir)
+
+    load_learner_path, learn_type, start_epoch, interrupt_epoch = get_experiment_state(config,base_dir)
+
+    main_bt_train(config=config,
+            start_epoch=start_epoch,
+            interrupt_epoch=interrupt_epoch,
+            load_learner_path=load_learner_path,
+            learn_type=learn_type,
+            experiment_dir=experiment_dir,
+            )
 
     # Save a metadata file in the experiment directory with the Git commit hash and other details
-    save_metadata_file(experiment_dir=experiment_dir, git_commit_hash=git_commit_hash,Description=Description)
+    save_metadata_file(experiment_dir=experiment_dir, git_commit_hash=git_commit_hash)
 
     # After experiment execution and all processing are complete
     update_experiment_index(base_dir,{
@@ -816,4 +776,5 @@ def run_bt_experiment(Description,
         # Any other metadata or results summary that is relevant to the experiment
                             })
     
+    return experiment_dir,experiment_hash #Return the experiment_dir so we can easily access the results of the experiment
 
