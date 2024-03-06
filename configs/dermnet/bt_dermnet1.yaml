@@ -17,7 +17,3 @@ num_it: 100
 pct_dataset: 1.0
 epochs: 500  #number of epochs to train BT variant
 save_interval: 100 #checkpoints every 100 epochs for reloading.
-
-
-
-

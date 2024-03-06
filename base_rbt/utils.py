@@ -446,7 +446,7 @@ class SaveLearnerCheckpoint(Callback):
             print(f"Checkpoint saved to {checkpoint_path}")
 
 
-# %% ../nbs/utils.ipynb 19
+# %% ../nbs/utils.ipynb 18
 def extract_epoch(filename):
     """Extract the epoch number from a filename."""
     pattern = re.compile(r"_epoch_(\d+)\.pt[h]?")
@@ -503,7 +503,6 @@ def get_highest_epoch_path(base_dir, config):
     base_experiment_dir = os.path.dirname(_experiment_dir)  # Strip the hash part
 
     print(f"looking in {base_experiment_dir} for highest epoch saved")
-
     _max_file_path = None
     _max_experiment_dir = None  # To keep track of the directory of the max file
 
@@ -522,7 +521,9 @@ def get_highest_epoch_path(base_dir, config):
 
     print(f"Found max file path: {_max_file_path} and max experiment dir: {_max_experiment_dir}")
     
-    return _max_file_path.split('.')[0], _max_experiment_dir  # Return both file path and directory
+    _max_file_path = _max_file_path.split('.')[0] if _max_file_path else None
+
+    return _max_file_path, _max_experiment_dir  # Return both file path and directory
 
 
 
@@ -534,7 +535,6 @@ def get_experiment_state(config,base_dir):
     """
 
     load_learner_path, _  = get_highest_epoch_path(base_dir, config)
-
     #TODO:
     #We can get start_epoch, interrupt epoch from `get_highest_epoch_path` + save_interval (may be None!)
     start_epoch=0 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
