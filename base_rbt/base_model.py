@@ -354,10 +354,8 @@ def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=
     
     projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
     apply_init(projector)
-    
  
     return BarlowTwinsModel(encoder, projector)
-
 
 
 # %% ../nbs/base_model.ipynb 13
@@ -743,7 +741,7 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 26
 def main_bt_experiment(config,
                       base_dir,
                       ):
