@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.551">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="In this module we have the base model, learner and other things we need to train encoder">
+
+<title>base_rbt - base_model</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="base_rbt - base_model">
+<meta property="og:description" content="In this module we have the base model, learner and other things we need to train encoder">
+<meta property="og:site_name" content="base_rbt">
+<meta name="twitter:title" content="base_rbt - base_model">
+<meta name="twitter:description" content="In this module we have the base model, learner and other things we need to train encoder">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">base_rbt</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./base_model.html">base_model</a></li></ol></nav>
+        <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">base_rbt</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./base_lf.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">base_lf</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./base_model.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">base_model</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./base_supervised.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">base_supervised</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./cifar10_dataloading.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">cifar10_dataloading</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./dermnet_dataloading.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">derment_dataloading</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./isic_dataloading.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">isic_dataloading</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">metrics</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./utils.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">utils</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#get_barlow_twins_aug_pipelines" id="toc-get_barlow_twins_aug_pipelines" class="nav-link active" data-scroll-target="#get_barlow_twins_aug_pipelines">get_barlow_twins_aug_pipelines</a></li>
+  <li><a href="#get_multi_aug_pipelines" id="toc-get_multi_aug_pipelines" class="nav-link" data-scroll-target="#get_multi_aug_pipelines">get_multi_aug_pipelines</a></li>
+  <li><a href="#get_bt_batch_augs" id="toc-get_bt_batch_augs" class="nav-link" data-scroll-target="#get_bt_batch_augs">get_BT_batch_augs</a></li>
+  <li><a href="#randomcenterdropout" id="toc-randomcenterdropout" class="nav-link" data-scroll-target="#randomcenterdropout">RandomCenterDropout</a></li>
+  <li><a href="#randomgaussianblur" id="toc-randomgaussianblur" class="nav-link" data-scroll-target="#randomgaussianblur">RandomGaussianBlur</a></li>
+  <li><a href="#get_bt_aug_pipelines" id="toc-get_bt_aug_pipelines" class="nav-link" data-scroll-target="#get_bt_aug_pipelines">get_bt_aug_pipelines</a></li>
+  <li><a href="#get_bt_dermnet_aug_pipelines" id="toc-get_bt_dermnet_aug_pipelines" class="nav-link" data-scroll-target="#get_bt_dermnet_aug_pipelines">get_bt_dermnet_aug_pipelines</a></li>
+  <li><a href="#get_bt_imagenet_aug_pipelines" id="toc-get_bt_imagenet_aug_pipelines" class="nav-link" data-scroll-target="#get_bt_imagenet_aug_pipelines">get_bt_imagenet_aug_pipelines</a></li>
+  <li><a href="#helper_get_bt_augs" id="toc-helper_get_bt_augs" class="nav-link" data-scroll-target="#helper_get_bt_augs">helper_get_bt_augs</a></li>
+  <li><a href="#get_bt_cifar10_aug_pipelines" id="toc-get_bt_cifar10_aug_pipelines" class="nav-link" data-scroll-target="#get_bt_cifar10_aug_pipelines">get_bt_cifar10_aug_pipelines</a></li>
+  <li><a href="#get_ssl_dls" id="toc-get_ssl_dls" class="nav-link" data-scroll-target="#get_ssl_dls">get_ssl_dls</a></li>
+  <li><a href="#barlowtwins" id="toc-barlowtwins" class="nav-link" data-scroll-target="#barlowtwins">BarlowTwins</a></li>
+  <li><a href="#create_barlow_twins_model" id="toc-create_barlow_twins_model" class="nav-link" data-scroll-target="#create_barlow_twins_model">create_barlow_twins_model</a></li>
+  <li><a href="#barlowtwinsmodel" id="toc-barlowtwinsmodel" class="nav-link" data-scroll-target="#barlowtwinsmodel">BarlowTwinsModel</a></li>
+  <li><a href="#create_barlow_twins_model-1" id="toc-create_barlow_twins_model-1" class="nav-link" data-scroll-target="#create_barlow_twins_model-1">create_barlow_twins_model</a></li>
+  <li><a href="#barlowtwinsmodel-1" id="toc-barlowtwinsmodel-1" class="nav-link" data-scroll-target="#barlowtwinsmodel-1">BarlowTwinsModel</a></li>
+  <li><a href="#lf_bt" id="toc-lf_bt" class="nav-link" data-scroll-target="#lf_bt">lf_bt</a></li>
+  <li><a href="#lf_bt_indiv_sparse" id="toc-lf_bt_indiv_sparse" class="nav-link" data-scroll-target="#lf_bt_indiv_sparse">lf_bt_indiv_sparse</a></li>
+  <li><a href="#lf_bt_group_sparse" id="toc-lf_bt_group_sparse" class="nav-link" data-scroll-target="#lf_bt_group_sparse">lf_bt_group_sparse</a></li>
+  <li><a href="#lf_bt_group_norm_sparse" id="toc-lf_bt_group_norm_sparse" class="nav-link" data-scroll-target="#lf_bt_group_norm_sparse">lf_bt_group_norm_sparse</a></li>
+  <li><a href="#lf_bt_fun" id="toc-lf_bt_fun" class="nav-link" data-scroll-target="#lf_bt_fun">lf_bt_fun</a></li>
+  <li><a href="#lf_bt_proj_group_sparse" id="toc-lf_bt_proj_group_sparse" class="nav-link" data-scroll-target="#lf_bt_proj_group_sparse">lf_bt_proj_group_sparse</a></li>
+  <li><a href="#barlowtwins.lf" id="toc-barlowtwins.lf" class="nav-link" data-scroll-target="#barlowtwins.lf">BarlowTwins.lf</a></li>
+  <li><a href="#my_splitter_bt" id="toc-my_splitter_bt" class="nav-link" data-scroll-target="#my_splitter_bt">my_splitter_bt</a></li>
+  <li><a href="#show_bt_batch" id="toc-show_bt_batch" class="nav-link" data-scroll-target="#show_bt_batch">show_bt_batch</a></li>
+  <li><a href="#barlowtrainer" id="toc-barlowtrainer" class="nav-link" data-scroll-target="#barlowtrainer">BarlowTrainer</a></li>
+  <li><a href="#main_bt_train" id="toc-main_bt_train" class="nav-link" data-scroll-target="#main_bt_train">main_bt_train</a></li>
+  <li><a href="#get_bt_experiment_state" id="toc-get_bt_experiment_state" class="nav-link" data-scroll-target="#get_bt_experiment_state">get_bt_experiment_state</a></li>
+  <li><a href="#main_bt_experiment" id="toc-main_bt_experiment" class="nav-link" data-scroll-target="#main_bt_experiment">main_bt_experiment</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/hamish-haggerty/base_rbt/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">base_model</h1>
+</div>
+
+<div>
+  <div class="description">
+    In this module we have the base model, learner and other things we need to train encoder
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>Here we have the base functions and classes to train a basic BT-style model. Note that this (mostly) all comes directly from here: <code>https://github.com/KeremTurgutlu/self_supervised/blob/main/nbs/14%20-%20barlow_twins.ipynb</code> but we needed to extend some of the functionality for our purposes.</p>
+<p>Some of the base classes and functions needed for image augmentation pipeline:</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L173" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="get_barlow_twins_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_barlow_twins_aug_pipelines">get_barlow_twins_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_barlow_twins_aug_pipelines (size, flip=True, crop=True, noise=True,
+                                 rotate=True, jitter=True, bw=True,
+                                 blur=True, solar=True, cutout=False,
+                                 resize_scale=(0.08, 1.0),
+                                 resize_ratio=(0.75, 1.3333333333333333),
+                                 noise_std=0.025, rotate_deg=30,
+                                 jitter_s=0.6, blur_s=(4, 32),
+                                 blur_r=(0.1, 2), blur_sig=None,
+                                 sol_t=0.05, sol_a=0.05,
+                                 min_dropout_size=(25, 100),
+                                 max_dropout_size=(50, 150), flip_p=0.5,
+                                 rotate_p=0.3, noise_p=0.2, jitter_p=0.3,
+                                 bw_p=0.3, blur_p=0.3, sol_p=0.1,
+                                 cut_p=0.5, same_on_batch=False,
+                                 stats=([0.485, 0.456, 0.406], [0.229,
+                                 0.224, 0.225]), cuda=False, xtra_tfms=[])</code></pre>
+</blockquote>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>size</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>flip</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>crop</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>noise</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>rotate</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>solar</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cutout</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use given aug or not</td>
+</tr>
+<tr class="odd">
+<td>resize_scale</td>
+<td>tuple</td>
+<td>(0.08, 1.0)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>resize_ratio</td>
+<td>tuple</td>
+<td>(0.75, 1.3333333333333333)</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_std</td>
+<td>float</td>
+<td>0.025</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_deg</td>
+<td>int</td>
+<td>30</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>jitter_s</td>
+<td>float</td>
+<td>0.6</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_s</td>
+<td>tuple</td>
+<td>(4, 32)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>blur_r</td>
+<td>tuple</td>
+<td>(0.1, 2)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_sig</td>
+<td>NoneType</td>
+<td>None</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_t</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>sol_a</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>min_dropout_size</td>
+<td>tuple</td>
+<td>(25, 100)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>max_dropout_size</td>
+<td>tuple</td>
+<td>(50, 150)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>flip_p</td>
+<td>float</td>
+<td>0.5</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_p</td>
+<td>float</td>
+<td>0.2</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_p</td>
+<td>float</td>
+<td>0.1</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cut_p</td>
+<td>float</td>
+<td>0.5</td>
+<td>prob of performing aug</td>
+</tr>
+<tr class="odd">
+<td>same_on_batch</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>stats</td>
+<td>tuple</td>
+<td>([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>cuda</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>xtra_tfms</td>
+<td>list</td>
+<td>[]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L170" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_multi_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_multi_aug_pipelines">get_multi_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_multi_aug_pipelines (size, flip=True, crop=True, noise=True,
+                          rotate=True, jitter=True, bw=True, blur=True,
+                          solar=True, cutout=False, resize_scale=(0.08,
+                          1.0), resize_ratio=(0.75, 1.3333333333333333),
+                          noise_std=0.025, rotate_deg=30, jitter_s=0.6,
+                          blur_s=(4, 32), blur_r=(0.1, 2), blur_sig=None,
+                          sol_t=0.05, sol_a=0.05, min_dropout_size=(25,
+                          100), max_dropout_size=(50, 150), flip_p=0.5,
+                          rotate_p=0.3, noise_p=0.2, jitter_p=0.3,
+                          bw_p=0.3, blur_p=0.3, sol_p=0.1, cut_p=0.5,
+                          same_on_batch=False, stats=([0.485, 0.456,
+                          0.406], [0.229, 0.224, 0.225]), cuda=False,
+                          xtra_tfms=[])</code></pre>
+</blockquote>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>size</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>flip</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>crop</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>noise</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>rotate</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>solar</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cutout</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use given aug or not</td>
+</tr>
+<tr class="odd">
+<td>resize_scale</td>
+<td>tuple</td>
+<td>(0.08, 1.0)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>resize_ratio</td>
+<td>tuple</td>
+<td>(0.75, 1.3333333333333333)</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_std</td>
+<td>float</td>
+<td>0.025</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_deg</td>
+<td>int</td>
+<td>30</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>jitter_s</td>
+<td>float</td>
+<td>0.6</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_s</td>
+<td>tuple</td>
+<td>(4, 32)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>blur_r</td>
+<td>tuple</td>
+<td>(0.1, 2)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_sig</td>
+<td>NoneType</td>
+<td>None</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_t</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>sol_a</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>min_dropout_size</td>
+<td>tuple</td>
+<td>(25, 100)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>max_dropout_size</td>
+<td>tuple</td>
+<td>(50, 150)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>flip_p</td>
+<td>float</td>
+<td>0.5</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_p</td>
+<td>float</td>
+<td>0.2</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_p</td>
+<td>float</td>
+<td>0.1</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cut_p</td>
+<td>float</td>
+<td>0.5</td>
+<td>prob of performing aug</td>
+</tr>
+<tr class="odd">
+<td>same_on_batch</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>stats</td>
+<td>tuple</td>
+<td>([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>cuda</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>xtra_tfms</td>
+<td>list</td>
+<td>[]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L123" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_batch_augs" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_batch_augs">get_BT_batch_augs</h3>
+<blockquote class="blockquote">
+<pre><code> get_BT_batch_augs (size, flip=True, crop=True, noise=True, rotate=True,
+                    jitter=True, bw=True, blur=True, solar=True,
+                    cutout=False, resize_scale=(0.08, 1.0),
+                    resize_ratio=(0.75, 1.3333333333333333),
+                    noise_std=0.025, rotate_deg=30, jitter_s=0.6,
+                    blur_s=(4, 32), blur_r=(0.1, 2), blur_sig=None,
+                    sol_t=0.05, sol_a=0.05, min_dropout_size=(25, 100),
+                    max_dropout_size=(50, 150), flip_p=0.5, rotate_p=0.3,
+                    noise_p=0.2, jitter_p=0.3, bw_p=0.3, blur_p=0.3,
+                    sol_p=0.1, cut_p=0.5, same_on_batch=False,
+                    stats=([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                    cuda=False, xtra_tfms=[])</code></pre>
+</blockquote>
+<p>Input batch augmentations implemented in tv+kornia+fastai</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>size</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>flip</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>crop</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>noise</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>rotate</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>solar</td>
+<td>bool</td>
+<td>True</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cutout</td>
+<td>bool</td>
+<td>False</td>
+<td>Whether to use given aug or not</td>
+</tr>
+<tr class="odd">
+<td>resize_scale</td>
+<td>tuple</td>
+<td>(0.08, 1.0)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>resize_ratio</td>
+<td>tuple</td>
+<td>(0.75, 1.3333333333333333)</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_std</td>
+<td>float</td>
+<td>0.025</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_deg</td>
+<td>int</td>
+<td>30</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>jitter_s</td>
+<td>float</td>
+<td>0.6</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_s</td>
+<td>tuple</td>
+<td>(4, 32)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>blur_r</td>
+<td>tuple</td>
+<td>(0.1, 2)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_sig</td>
+<td>NoneType</td>
+<td>None</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_t</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>sol_a</td>
+<td>float</td>
+<td>0.05</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>min_dropout_size</td>
+<td>tuple</td>
+<td>(25, 100)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>max_dropout_size</td>
+<td>tuple</td>
+<td>(50, 150)</td>
+<td>hps of diff augs</td>
+</tr>
+<tr class="odd">
+<td>flip_p</td>
+<td>float</td>
+<td>0.5</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>rotate_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>noise_p</td>
+<td>float</td>
+<td>0.2</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>jitter_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bw_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>blur_p</td>
+<td>float</td>
+<td>0.3</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sol_p</td>
+<td>float</td>
+<td>0.1</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>cut_p</td>
+<td>float</td>
+<td>0.5</td>
+<td>prob of performing aug</td>
+</tr>
+<tr class="odd">
+<td>same_on_batch</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>stats</td>
+<td>tuple</td>
+<td>([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>cuda</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>xtra_tfms</td>
+<td>list</td>
+<td>[]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L76" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="randomcenterdropout" class="level3">
+<h3 class="anchored" data-anchor-id="randomcenterdropout">RandomCenterDropout</h3>
+<blockquote class="blockquote">
+<pre><code> RandomCenterDropout (p=0.5, min_dropout_size=(20, 20),
+                      max_dropout_size=(60, 60), fill_value=0,
+                      same_on_batch=False)</code></pre>
+</blockquote>
+<p>Base class for all neural network modules.</p>
+<p>Your models should also subclass this class.</p>
+<p>Modules can also contain other Modules, allowing to nest them in a tree structure. You can assign the submodules as regular attributes::</p>
+<pre><code>import torch.nn as nn
+import torch.nn.functional as F
+
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 20, 5)
+        self.conv2 = nn.Conv2d(20, 20, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        return F.relu(self.conv2(x))</code></pre>
+<p>Submodules assigned in this way will be registered, and will have their parameters converted too when you call :meth:<code>to</code>, etc.</p>
+<p>.. note:: As per the example above, an <code>__init__()</code> call to the parent class must be made before assignment on the child.</p>
+<p>:ivar training: Boolean represents whether this module is in training or evaluation mode. :vartype training: bool</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L26" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="randomgaussianblur" class="level3">
+<h3 class="anchored" data-anchor-id="randomgaussianblur">RandomGaussianBlur</h3>
+<blockquote class="blockquote">
+<pre><code> RandomGaussianBlur (p=1.0, prob=0.5, s=(8, 32), sig=None, blur_r=(0.1,
+                     2), same_on_batch=False, **kwargs)</code></pre>
+</blockquote>
+<p>Randomly apply gaussian blur with probability <code>p</code> with a value of s</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>p</td>
+<td>float</td>
+<td>1.0</td>
+<td>debugging (bug in libraries implementation)</td>
+</tr>
+<tr class="even">
+<td>prob</td>
+<td>float</td>
+<td>0.5</td>
+<td>the real probability</td>
+</tr>
+<tr class="odd">
+<td>s</td>
+<td>tuple</td>
+<td>(8, 32)</td>
+<td>kernel</td>
+</tr>
+<tr class="even">
+<td>sig</td>
+<td>NoneType</td>
+<td>None</td>
+<td>sig_val is either manually input OR</td>
+</tr>
+<tr class="odd">
+<td>blur_r</td>
+<td>tuple</td>
+<td>(0.1, 2)</td>
+<td>is randomly chosen from uniform with these bounds</td>
+</tr>
+<tr class="even">
+<td>same_on_batch</td>
+<td>bool</td>
+<td>False</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>kwargs</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L249" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_aug_pipelines">get_bt_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_bt_aug_pipelines (bt_augs, size)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L240" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_dermnet_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_dermnet_aug_pipelines">get_bt_dermnet_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_bt_dermnet_aug_pipelines (size)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L237" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_imagenet_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_imagenet_aug_pipelines">get_bt_imagenet_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_bt_imagenet_aug_pipelines (size)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L208" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="helper_get_bt_augs" class="level3">
+<h3 class="anchored" data-anchor-id="helper_get_bt_augs">helper_get_bt_augs</h3>
+<blockquote class="blockquote">
+<pre><code> helper_get_bt_augs (size, Augs={'flip_p1': 0.5, 'flip_p2': 0.5,
+                     'jitter_p1': 0.8, 'jitter_p2': 0.8, 'bw_p1': 0.2,
+                     'bw_p2': 0.2, 'blur_p1': 1.0, 'blur_p2': 0.1,
+                     'sol_p1': 0.0, 'sol_p2': 0.2, 'noise_p1': 0.0,
+                     'noise_p2': 0.0, 'cut_p': 0.5, 'resize_scale': (0.7,
+                     1.0), 'resize_ratio': (0.75, 1.3333333333333333),
+                     'rotate_deg': 45.0, 'rotate_p': 0.5, 'blur_r': (0.1,
+                     2), 'blur_s': 13, 'sol_t': 0.1, 'sol_a': 0.1,
+                     'noise_std': 0.1, 'min_dropout_size': (25, 100),
+                     'max_dropout_size': (50, 150)})</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L177" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_cifar10_aug_pipelines" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_cifar10_aug_pipelines">get_bt_cifar10_aug_pipelines</h3>
+<blockquote class="blockquote">
+<pre><code> get_bt_cifar10_aug_pipelines (size)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L256" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_ssl_dls" class="level3">
+<h3 class="anchored" data-anchor-id="get_ssl_dls">get_ssl_dls</h3>
+<blockquote class="blockquote">
+<pre><code> get_ssl_dls (dataset, bs, size, device, pct_dataset=1.0)</code></pre>
+</blockquote>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>dataset</td>
+<td></td>
+<td></td>
+<td>cifar10, dermnet, etc</td>
+</tr>
+<tr class="even">
+<td>bs</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>size</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>device</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>pct_dataset</td>
+<td>float</td>
+<td>1.0</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Base functions / classes we need to train a BT / RBT model.</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L319" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="barlowtwins" class="level3">
+<h3 class="anchored" data-anchor-id="barlowtwins">BarlowTwins</h3>
+<blockquote class="blockquote">
+<pre><code> BarlowTwins (aug_pipelines, n_in, lmb, sparsity_level,
+              model_type='barlow_twins', print_augs=False)</code></pre>
+</blockquote>
+<p>Basic class handling tweaks of the training loop by changing a <code>Learner</code> in various events</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L392" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="create_barlow_twins_model" class="level3">
+<h3 class="anchored" data-anchor-id="create_barlow_twins_model">create_barlow_twins_model</h3>
+<blockquote class="blockquote">
+<pre><code> create_barlow_twins_model (encoder, hidden_size=256, projection_size=128,
+                            bn=True, nlayers=3)</code></pre>
+</blockquote>
+<p>Create Barlow Twins model</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L378" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="barlowtwinsmodel" class="level3">
+<h3 class="anchored" data-anchor-id="barlowtwinsmodel">BarlowTwinsModel</h3>
+<blockquote class="blockquote">
+<pre><code> BarlowTwinsModel (encoder, projector)</code></pre>
+</blockquote>
+<p>An encoder followed by a projector</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L392" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="create_barlow_twins_model-1" class="level3">
+<h3 class="anchored" data-anchor-id="create_barlow_twins_model-1">create_barlow_twins_model</h3>
+<blockquote class="blockquote">
+<pre><code> create_barlow_twins_model (encoder, hidden_size=256, projection_size=128,
+                            bn=True, nlayers=3)</code></pre>
+</blockquote>
+<p>Create Barlow Twins model</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L378" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="barlowtwinsmodel-1" class="level3">
+<h3 class="anchored" data-anchor-id="barlowtwinsmodel-1">BarlowTwinsModel</h3>
+<blockquote class="blockquote">
+<pre><code> BarlowTwinsModel (encoder, projector)</code></pre>
+</blockquote>
+<p>An encoder followed by a projector</p>
+<p>Here we write down standard definition of <code>lf</code> for <code>RAT</code> method:</p>
+<p>BarlowTwins needs an <code>lf</code> method to work properly. Here we provide the <code>lf</code> of standard barlow twins. Later we can patch in a new defintion of <code>lf</code> that involves random functions, inner maximization etc. The tools needed to do this are provised in <code>base_lf</code></p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L404" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt">lf_bt</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt (pred, I, lmb)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L418" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt_indiv_sparse" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt_indiv_sparse">lf_bt_indiv_sparse</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt_indiv_sparse (pred, I, lmb, sparsity_level)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L451" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt_group_sparse" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt_group_sparse">lf_bt_group_sparse</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt_group_sparse (pred, I, lmb, sparsity_level)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L481" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt_group_norm_sparse" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt_group_norm_sparse">lf_bt_group_norm_sparse</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt_group_norm_sparse (pred, I, lmb, sparsity_level)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L515" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt_fun" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt_fun">lf_bt_fun</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt_fun (pred, I, lmb, sparsity_level)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L549" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="lf_bt_proj_group_sparse" class="level3">
+<h3 class="anchored" data-anchor-id="lf_bt_proj_group_sparse">lf_bt_proj_group_sparse</h3>
+<blockquote class="blockquote">
+<pre><code> lf_bt_proj_group_sparse (pred, I, lmb, sparsity_level)</code></pre>
+</blockquote>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/index.py#L37" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="barlowtwins.lf" class="level3">
+<h3 class="anchored" data-anchor-id="barlowtwins.lf">BarlowTwins.lf</h3>
+<blockquote class="blockquote">
+<pre><code> BarlowTwins.lf (pred, *yb)</code></pre>
+</blockquote>
+<p>Assumes model created according to type p3</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L605" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="my_splitter_bt" class="level3">
+<h3 class="anchored" data-anchor-id="my_splitter_bt">my_splitter_bt</h3>
+<blockquote class="blockquote">
+<pre><code> my_splitter_bt (m)</code></pre>
+</blockquote>
+<p>Here we show how to use the above functions in an end to end fashion. First we get some data and plonk it into a dls, Then create an encoder, an augmentation pipeline, a learner, then fit the learner. This is the complete process of training BT.</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L609" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="show_bt_batch" class="level3">
+<h3 class="anchored" data-anchor-id="show_bt_batch">show_bt_batch</h3>
+<blockquote class="blockquote">
+<pre><code> show_bt_batch (dls, n_in, aug, n=2, print_augs=True)</code></pre>
+</blockquote>
+<p>Given a linear learner, show a batch</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L621" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="barlowtrainer" class="level3">
+<h3 class="anchored" data-anchor-id="barlowtrainer">BarlowTrainer</h3>
+<blockquote class="blockquote">
+<pre><code> BarlowTrainer (model, dls, bt_aug_pipelines, lmb, sparsity_level, n_in,
+                model_type, wd, device, num_it=100,
+                load_learner_path=None, experiment_dir=None,
+                start_epoch=0, save_interval=None)</code></pre>
+</blockquote>
+<p>Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model</td>
+<td></td>
+<td></td>
+<td>An encoder followed by a projector</td>
+</tr>
+<tr class="even">
+<td>dls</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>bt_aug_pipelines</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>lmb</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>sparsity_level</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>n_in</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>model_type</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>wd</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>device</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>num_it</td>
+<td>int</td>
+<td>100</td>
+<td>Number of iterations to run lr_find for.</td>
+</tr>
+<tr class="odd">
+<td>load_learner_path</td>
+<td>NoneType</td>
+<td>None</td>
+<td>Path to load learner from (optional)</td>
+</tr>
+<tr class="even">
+<td>experiment_dir</td>
+<td>NoneType</td>
+<td>None</td>
+<td>Where to save model checkpoints (optional)</td>
+</tr>
+<tr class="odd">
+<td>start_epoch</td>
+<td>int</td>
+<td>0</td>
+<td>Which epoch to start from</td>
+</tr>
+<tr class="even">
+<td>save_interval</td>
+<td>NoneType</td>
+<td>None</td>
+<td>How often to save model checkpoints (optional).</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L737" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="main_bt_train" class="level3">
+<h3 class="anchored" data-anchor-id="main_bt_train">main_bt_train</h3>
+<blockquote class="blockquote">
+<pre><code> main_bt_train (config, start_epoch=0, interrupt_epoch=100,
+                load_learner_path=None, learn_type='standard',
+                experiment_dir=None)</code></pre>
+</blockquote>
+<p>Basically map from config to training a BT model. Optionally save checkpoints of learner.</p>
+<table class="table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 25%">
+<col style="width: 34%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th><strong>Type</strong></th>
+<th><strong>Default</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>config</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>start_epoch</td>
+<td>int</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>interrupt_epoch</td>
+<td>int</td>
+<td>100</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>load_learner_path</td>
+<td>NoneType</td>
+<td>None</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>learn_type</td>
+<td>str</td>
+<td>standard</td>
+<td>can be ‘standard’, ‘transfer_learning’, or ‘continue_learning’</td>
+</tr>
+<tr class="even">
+<td>experiment_dir</td>
+<td>NoneType</td>
+<td>None</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<div id="cell-35" class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># config_path = '../configs/cifar10/bt_test_config.yaml'</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="co"># config = load_config(config_path)</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="co"># load_learner_path=None</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co"># experiment_dir=None</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="co"># start_epoch=0</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="co"># # Initialize the device for model training (CUDA or CPU)</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a><span class="co"># device = default_device()</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a><span class="co"># # Construct the model based on the configuration</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a><span class="co"># # This involves selecting the architecture and setting model-specific hyperparameters.</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="co"># encoder = resnet_arch_to_encoder(arch=config.arch, weight_type=config.weight_type)</span></span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="co"># model = create_barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a><span class="co"># # Prepare data loaders according to the dataset specified in the configuration</span></span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a><span class="co"># dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device,pct_dataset=config.pct_dataset)</span></span>
+<span id="cb29-20"><a href="#cb29-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-21"><a href="#cb29-21" aria-hidden="true" tabindex="-1"></a><span class="co"># # Set up data augmentation pipelines as specified in the configuration</span></span>
+<span id="cb29-22"><a href="#cb29-22" aria-hidden="true" tabindex="-1"></a><span class="co"># bt_aug_pipelines = get_bt_aug_pipelines(bt_augs=config.bt_augs, size=config.size)</span></span>
+<span id="cb29-23"><a href="#cb29-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-24"><a href="#cb29-24" aria-hidden="true" tabindex="-1"></a><span class="co"># # Train the model with the specified configurations and save `learn` checkpoints</span></span>
+<span id="cb29-25"><a href="#cb29-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-26"><a href="#cb29-26" aria-hidden="true" tabindex="-1"></a><span class="co"># #Setup the bt trainer. basically a `Learner` with a few extra bells and whistles</span></span>
+<span id="cb29-27"><a href="#cb29-27" aria-hidden="true" tabindex="-1"></a><span class="co"># bt_trainer = BarlowTrainer(model=model,</span></span>
+<span id="cb29-28"><a href="#cb29-28" aria-hidden="true" tabindex="-1"></a><span class="co">#                dls=dls,</span></span>
+<span id="cb29-29"><a href="#cb29-29" aria-hidden="true" tabindex="-1"></a><span class="co">#                bt_aug_pipelines=bt_aug_pipelines,</span></span>
+<span id="cb29-30"><a href="#cb29-30" aria-hidden="true" tabindex="-1"></a><span class="co">#                lmb=config.lmb,</span></span>
+<span id="cb29-31"><a href="#cb29-31" aria-hidden="true" tabindex="-1"></a><span class="co">#                sparsity_level=config.sparsity_level,</span></span>
+<span id="cb29-32"><a href="#cb29-32" aria-hidden="true" tabindex="-1"></a><span class="co">#                n_in=config.n_in,</span></span>
+<span id="cb29-33"><a href="#cb29-33" aria-hidden="true" tabindex="-1"></a><span class="co">#                model_type=config.model_type,</span></span>
+<span id="cb29-34"><a href="#cb29-34" aria-hidden="true" tabindex="-1"></a><span class="co">#                wd=config.wd,</span></span>
+<span id="cb29-35"><a href="#cb29-35" aria-hidden="true" tabindex="-1"></a><span class="co">#                num_it=config.num_it,</span></span>
+<span id="cb29-36"><a href="#cb29-36" aria-hidden="true" tabindex="-1"></a><span class="co">#                device=device,</span></span>
+<span id="cb29-37"><a href="#cb29-37" aria-hidden="true" tabindex="-1"></a><span class="co">#                load_learner_path=load_learner_path,</span></span>
+<span id="cb29-38"><a href="#cb29-38" aria-hidden="true" tabindex="-1"></a><span class="co">#                experiment_dir=experiment_dir,</span></span>
+<span id="cb29-39"><a href="#cb29-39" aria-hidden="true" tabindex="-1"></a><span class="co">#                start_epoch=start_epoch,</span></span>
+<span id="cb29-40"><a href="#cb29-40" aria-hidden="true" tabindex="-1"></a><span class="co">#                save_interval=config.save_interval</span></span>
+<span id="cb29-41"><a href="#cb29-41" aria-hidden="true" tabindex="-1"></a><span class="co">#                               )</span></span>
+<span id="cb29-42"><a href="#cb29-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-43"><a href="#cb29-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-44"><a href="#cb29-44" aria-hidden="true" tabindex="-1"></a><span class="co"># bt_trainer.learn.lr_find??</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L787" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="get_bt_experiment_state" class="level3">
+<h3 class="anchored" data-anchor-id="get_bt_experiment_state">get_bt_experiment_state</h3>
+<blockquote class="blockquote">
+<pre><code> get_bt_experiment_state (config, base_dir)</code></pre>
+</blockquote>
+<p>Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment. Basically this tells us how to continue learning (e.g.&nbsp;we have run two sessions for 100 epochs, and want to continue for another 100 epochs). Return values are None if we are starting from scratch.</p>
+<hr>
+<p><a href="https://github.com/hamish-haggerty/base_rbt/blob/main/base_rbt/base_model.py#L818" target="_blank" style="float:right; font-size:smaller">source</a></p>
+</section>
+<section id="main_bt_experiment" class="level3">
+<h3 class="anchored" data-anchor-id="main_bt_experiment">main_bt_experiment</h3>
+<blockquote class="blockquote">
+<pre><code> main_bt_experiment (config, base_dir)</code></pre>
+</blockquote>
+<p>Run several epochs of the experiment as defined in the config and where we are up to. e.g.&nbsp;epoch 0, or resuming at epoch 99 etc. Basically a stateful version of <a href="https://hamish-haggerty.github.io/base_rbt/base_model.html#main_bt_train"><code>main_bt_train</code></a> that can be resumed. And saving.</p>
+<p>Full example.</p>
+<p>Example where the <code>experiment_index.json</code> already exists in <code>base_dir</code> (project root).</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/hamish-haggerty\.github\.io\/base_rbt");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/hamish-haggerty/base_rbt/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
