@@ -1,7 +1,7 @@
 dataset: dermnet
 arch: resnet50
 train_type: SSL #which train type we will perform: SSL or supervised
-weight_type: random #random,supervised_pretrained, bt_pretrained
+weight_type: random #random, imgnet_bt_pretrained,imgnet_sup_pretrained etc
 size: 256 #size of the image
 n_in: 3
 bs: 128 #batch size for training

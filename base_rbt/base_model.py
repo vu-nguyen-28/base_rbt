@@ -4,12 +4,14 @@
 __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianBlur', 'RandomCenterDropout', 'get_BT_batch_augs',
            'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines', 'get_bt_cifar10_aug_pipelines',
            'helper_get_bt_augs', 'get_bt_imagenet_aug_pipelines', 'get_bt_dermnet_aug_pipelines',
-           'get_bt_aug_pipelines', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins', 'lf_bt',
-           'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse', 'lf_bt_fun',
+           'get_bt_aug_pipelines', 'get_ssl_dls', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins',
+           'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse', 'lf_bt_fun',
            'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'BarlowTrainer', 'main_bt_train',
-           'main_bt_experiment']
+           'get_bt_experiment_state', 'main_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
+import importlib
+import sys
 import self_supervised
 import torch
 from fastai.vision.all import *
@@ -250,7 +252,47 @@ def get_bt_aug_pipelines(bt_augs,size):
 
     
 
-# %% ../nbs/base_model.ipynb 9
+# %% ../nbs/base_model.ipynb 8
+def get_ssl_dls(dataset,#cifar10, dermnet, etc
+            bs,
+            size,
+            device,
+            pct_dataset=1.0):
+    # Define the base package name in a variable for easy modification
+
+    try:
+        # Construct the module path
+        module_path = f"{PACKAGE_NAME}.{dataset}_dataloading"
+        
+        # Dynamically import the module
+        dataloading_module = importlib.import_module(module_path)
+    except ModuleNotFoundError:
+        # Handle the case where the module cannot be found
+        raise ImportError(f"Could not find a data loading module for '{dataset}'. "
+                          f"Make sure '{module_path}' exists and is correctly named.") from None
+    
+    # Assuming the function name follows a consistent naming convention
+    func_name = f"get_bt_{dataset}_train_dls"
+
+    try:
+        # Retrieve the data loading function from the module
+        data_loader_func = getattr(dataloading_module, func_name)
+    except AttributeError:
+        # Handle the case where the function does not exist in the module
+        raise AttributeError(f"The function '{func_name}' was not found in '{module_path}'. "
+                             "Ensure it is defined and named correctly.") from None
+    
+    # Proceed to call the function with arguments from the config
+    try:
+        dls_train = data_loader_func(bs=bs,size=size,device=device,pct_dataset=pct_dataset)
+    except Exception as e:
+        # Handle any errors that occur during the function call
+        raise RuntimeError(f"An error occurred while calling '{func_name}' from '{module_path}': {e}") from None
+    
+    return dls_train
+
+
+# %% ../nbs/base_model.ipynb 10
 #Base functions / classes we need to train a BT / RBT model.
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -328,7 +370,7 @@ class BarlowTwins(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_model.ipynb 10
+# %% ../nbs/base_model.ipynb 11
 #We want access to both representation and projection
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -358,7 +400,7 @@ def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=
     return BarlowTwinsModel(encoder, projector)
 
 
-# %% ../nbs/base_model.ipynb 13
+# %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -372,7 +414,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 14
+# %% ../nbs/base_model.ipynb 15
 def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -405,7 +447,7 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
     
 
 
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 16
 def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -435,7 +477,7 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 16
+# %% ../nbs/base_model.ipynb 17
 def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -469,7 +511,7 @@ def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 18
 def lf_bt_fun(pred,I,lmb,sparsity_level,
                       ):
 
@@ -503,7 +545,7 @@ def lf_bt_fun(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 19
 def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
                            ):
 
@@ -531,7 +573,7 @@ def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 19
+# %% ../nbs/base_model.ipynb 20
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
@@ -559,11 +601,11 @@ def lf(self:BarlowTwins, pred,*yb):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 21
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 23
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -575,7 +617,7 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 23
+# %% ../nbs/base_model.ipynb 24
 class BarlowTrainer:
     "Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training."
 
@@ -691,7 +733,7 @@ class BarlowTrainer:
         return self.learn
 
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 25
 def main_bt_train(config,
         start_epoch = 0,
         interrupt_epoch = 100,
@@ -741,7 +783,38 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 26
+# %% ../nbs/base_model.ipynb 27
+def get_bt_experiment_state(config,base_dir):
+    """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
+       Basically this tells us how to continue learning (e.g. we have run two sessions for 
+       100 epochs, and want to continue for another 100 epochs). Return values are
+       None if we are starting from scratch.
+    """
+
+    load_learner_path, _  = get_highest_num_path(base_dir, config)
+    #TODO:
+    #We can get start_epoch, interrupt epoch from `get_highest_epoch_path` + save_interval (may be None!)
+    start_epoch=0 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
+    
+    if start_epoch >= config.epochs:
+        print(f"start_epoch={start_epoch}, but already completed {config.num_epochs} epochs. Exiting.")
+        sys.exit()
+
+    interrupt_epoch = start_epoch + config.save_interval
+
+    #We can also get the learn_type from the load_learner_path + weight_type. 
+    
+    if config.weight_type == 'random':
+        learn_type = 'standard'
+    
+    elif 'pretrained' in config.weight_type:
+        learn_type = 'transfer_learning'
+
+    learn_type = learn_type if load_learner_path is None else 'continue_learning'
+
+    return load_learner_path, learn_type, start_epoch, interrupt_epoch
+
+# %% ../nbs/base_model.ipynb 28
 def main_bt_experiment(config,
                       base_dir,
                       ):
@@ -752,7 +825,7 @@ def main_bt_experiment(config,
         
     experiment_dir, experiment_hash,git_commit_hash = setup_experiment(config,base_dir)
 
-    load_learner_path, learn_type, start_epoch, interrupt_epoch = get_experiment_state(config,base_dir)
+    load_learner_path, learn_type, start_epoch, interrupt_epoch = get_bt_experiment_state(config,base_dir)
 
     main_bt_train(config=config,
             start_epoch=start_epoch,

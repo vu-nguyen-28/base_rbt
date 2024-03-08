@@ -2,11 +2,11 @@
 
 # %% auto 0
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
-           'load_config', 'get_ssl_dls', 'get_supervised_dls', 'get_resnet_encoder', 'resnet_arch_to_encoder',
-           'generate_config_hash', 'create_experiment_directory', 'save_configuration', 'save_metadata_file',
-           'update_experiment_index', 'get_latest_commit_hash', 'setup_experiment', 'InterruptCallback',
-           'SaveLearnerCheckpoint', 'extract_epoch', 'find_largest_epoch_file', 'return_max_filename',
-           'get_highest_epoch_path', 'get_experiment_state']
+           'load_config', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
+           'create_experiment_directory', 'save_configuration', 'save_metadata_file', 'update_experiment_index',
+           'get_latest_commit_hash', 'setup_experiment', 'InterruptCallback', 'SaveLearnerCheckpoint', 'extract_number',
+           'find_largest_file', 'return_max_filename', 'get_highest_num_path', 'save_dict_to_gdrive',
+           'load_dict_from_gdrive']
 
 # %% ../nbs/utils.ipynb 3
 from fastcore.test import *
@@ -27,6 +27,7 @@ import json
 import hashlib
 import subprocess
 import re
+import sys
 
 
 # %% ../nbs/utils.ipynb 4
@@ -98,99 +99,7 @@ def load_config(file_path):
 
     return config
 
-# %% ../nbs/utils.ipynb 8
-def get_ssl_dls(dataset,bs,size,device,pct_dataset=1.0):
-    # Define the base package name in a variable for easy modification
-
-    try:
-        # Construct the module path
-        module_path = f"{PACKAGE_NAME}.{dataset}_dataloading"
-        
-        # Dynamically import the module
-        dataloading_module = importlib.import_module(module_path)
-    except ModuleNotFoundError:
-        # Handle the case where the module cannot be found
-        raise ImportError(f"Could not find a data loading module for '{dataset}'. "
-                          f"Make sure '{module_path}' exists and is correctly named.") from None
-    
-    # Assuming the function name follows a consistent naming convention
-    func_name = f"get_bt_{dataset}_train_dls"
-    try:
-        # Retrieve the data loading function from the module
-        data_loader_func = getattr(dataloading_module, func_name)
-    except AttributeError:
-        # Handle the case where the function does not exist in the module
-        raise AttributeError(f"The function '{func_name}' was not found in '{module_path}'. "
-                             "Ensure it is defined and named correctly.") from None
-    
-    # Proceed to call the function with arguments from the config
-    try:
-        dls_train = data_loader_func(bs=bs,size=size,device=device,pct_dataset=pct_dataset)
-    except Exception as e:
-        # Handle any errors that occur during the function call
-        raise RuntimeError(f"An error occurred while calling '{func_name}' from '{module_path}': {e}") from None
-    
-    return dls_train
-
-
 # %% ../nbs/utils.ipynb 9
-def get_supervised_dls(dataset,bs,bs_test,size,device):
-    "Get train and test dataloaders for supervised learning"
-
-    try:
-        # Construct the module path
-        module_path = f"{PACKAGE_NAME}.{dataset}_dataloading"
-        
-        # Dynamically import the module
-        dataloading_module = importlib.import_module(module_path)
-    except ModuleNotFoundError:
-        # Handle the case where the module cannot be found
-        raise ImportError(f"Could not find a data loading module for '{dataset}'. "
-                          f"Make sure '{module_path}' exists and is correctly named.") from None
-    
-    # Assuming the function name follows a consistent naming convention
-    func_name_train = f"get_supervised_{dataset}_train_dls"
-    try:
-        # Retrieve the data loading function from the module
-        train_data_loader_func = getattr(dataloading_module, func_name_train)
-    except AttributeError:
-        # Handle the case where the function does not exist in the module
-        raise AttributeError(f"The function '{func_name_train}' was not found in '{module_path}'. "
-                             "Ensure it is defined and named correctly.") from None
-    
-    # Proceed to call the function with arguments from the config
-    try:
-        dls_train = train_data_loader_func(bs=bs,size=size,device=device)
-    except Exception as e:
-        # Handle any errors that occur during the function call
-        raise RuntimeError(f"An error occurred while calling '{func_name_train}' from '{module_path}': {e}") from None
-    
-    
-      # Assuming the function name follows a consistent naming convention
-    func_name_test = f"get_supervised_{dataset}_test_dls"
-    try:
-        # Retrieve the data loading function from the module
-        test_data_loader_func = getattr(dataloading_module, func_name_test)
-    except AttributeError:
-        # Handle the case where the function does not exist in the module
-        raise AttributeError(f"The function '{func_name_test}' was not found in '{module_path}'. "
-                             "Ensure it is defined and named correctly.") from None
-    
-    # Proceed to call the function with arguments from the config
-    try:
-        dls_test = test_data_loader_func(bs=bs_test,size=size,device=device)
-    except Exception as e:
-        # Handle any errors that occur during the function call
-        raise RuntimeError(f"An error occurred while calling '{func_name_test}' from '{module_path}': {e}") from None
-    
-    
-
-    return {'train_dls':dls_train,'test_dls':dls_test}
-
-
-    
-
-# %% ../nbs/utils.ipynb 11
 class _SmallRes(nn.Module):
     def __init__(self, num_classes=1000):
         super().__init__()
@@ -229,7 +138,7 @@ class _SmallRes(nn.Module):
         return x
 
 
-# %% ../nbs/utils.ipynb 12
+# %% ../nbs/utils.ipynb 10
 @torch.no_grad()
 def get_resnet_encoder(model,n_in=3):
     model = create_body(model, n_in=n_in, pretrained=False, cut=len(list(model.children()))-1)
@@ -239,13 +148,13 @@ def get_resnet_encoder(model,n_in=3):
 
 @torch.no_grad()
 def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'resnet50'],
-                           weight_type: Literal['random', 'partialtrained', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained'] = 'random'):
+                           weight_type: Literal['random', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained'] = 'random'):
     """Given a ResNet architecture, return the encoder configured for 3 input channels.
        The 'weight_type' argument specifies the weight initialization strategy.
 
     Args:
         arch (Literal['smallres','resnet18', 'resnet34', 'resnet50']): The architecture of the ResNet.
-        weight_type (Literal['random', 'partialtrained', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained']): Specifies the weight initialization strategy. Defaults to 'random'.
+        weight_type (Literal['random', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained']): Specifies the weight initialization strategy. Defaults to 'random'.
 
     Returns:
         Encoder: An encoder configured for 3 input channels and specified architecture.
@@ -255,9 +164,6 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
 
 
     if weight_type == 'imgnet_bt_pretrained': test_eq(arch,'resnet50')
-
-    #This means we will load the state_dict from a path.
-    if weight_type == 'partialtrained': weight_type = 'random'
 
     
     if arch == 'resnet50':
@@ -297,7 +203,7 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
 
 
 
-# %% ../nbs/utils.ipynb 13
+# %% ../nbs/utils.ipynb 11
 def generate_config_hash(config):
     """
     Generates a unique hash for a given experiment configuration.
@@ -323,7 +229,7 @@ def generate_config_hash(config):
     return short_hash
 
 
-# %% ../nbs/utils.ipynb 16
+# %% ../nbs/utils.ipynb 14
 def create_experiment_directory(base_dir, config):
     # Generate a unique hash for the configuration
     unique_hash = generate_config_hash(config)
@@ -417,7 +323,7 @@ def setup_experiment(config,base_dir):
     return experiment_dir, experiment_hash,git_commit_hash
 
 
-# %% ../nbs/utils.ipynb 17
+# %% ../nbs/utils.ipynb 15
 class InterruptCallback(Callback):
     def __init__(self, interrupt_epoch):
         super().__init__()
@@ -446,25 +352,26 @@ class SaveLearnerCheckpoint(Callback):
             print(f"Checkpoint saved to {checkpoint_path}")
 
 
-# %% ../nbs/utils.ipynb 18
-def extract_epoch(filename):
-    """Extract the epoch number from a filename."""
-    pattern = re.compile(r"_epoch_(\d+)\.pt[h]?")
+# %% ../nbs/utils.ipynb 16
+def extract_number(filename):
+    """Extract the number from end of  filename. e.g. `epoch`"""
+    #pattern = re.compile(r"_epoch_(\d+)\.pt[h]?")
+    pattern = re.compile(r"_(\d+)\.pt[h]?")
     match = pattern.search(filename)
     return int(match.group(1)) if match else None
 
-def find_largest_epoch_file(directory_path):
-    """Find the file with the largest epoch number in a directory."""
-    max_epoch = -1
-    largest_epoch_file = None
+def find_largest_file(directory_path):
+    """Find the file with the largest number (e.g. epoch) in a directory."""
+    _max = -1
+    largest_file = None
 
     for filename in os.listdir(directory_path):
-        epoch = extract_epoch(filename)
-        if epoch is not None and epoch > max_epoch:
-            max_epoch = epoch
-            largest_epoch_file = filename
+        num = extract_number(filename)
+        if num is not None and num > _max:
+            _max = num
+            largest_file = filename
 
-    return largest_epoch_file
+    return largest_file
 
 def return_max_filename(filename1, filename2):
     # Improved handling for initial cases
@@ -474,17 +381,17 @@ def return_max_filename(filename1, filename2):
         return filename1
 
     # Extract epochs and compare
-    epoch1 = extract_epoch(filename1)
-    epoch2 = extract_epoch(filename2)
+    num1 = extract_number(filename1)
+    num2 = extract_number(filename2)
 
     # Return the filename with the larger epoch number
-    return filename1 if epoch1 >= epoch2 else filename2
+    return filename1 if num1 >= num2 else filename2
 
 
-def get_highest_epoch_path(base_dir, config):
+def get_highest_num_path(base_dir, config):
     """
     Check in all experiment directories derived from the config and return the path
-    to the file with the highest epoch along with its experiment directory.
+    to the file with the highest number along with its experiment directory.
     """
 
     experiment_index_path = base_dir + '/experiment_index.json'
@@ -502,7 +409,7 @@ def get_highest_epoch_path(base_dir, config):
     _experiment_dir, _ = create_experiment_directory(base_dir, config)
     base_experiment_dir = os.path.dirname(_experiment_dir)  # Strip the hash part
 
-    print(f"looking in {base_experiment_dir} for highest epoch saved")
+    print(f"looking in {base_experiment_dir} for highest num saved")
     _max_file_path = None
     _max_experiment_dir = None  # To keep track of the directory of the max file
 
@@ -510,7 +417,7 @@ def get_highest_epoch_path(base_dir, config):
         _experiment_dir = experiment_index[k]['experiment_dir']
         if base_experiment_dir not in _experiment_dir:
             continue
-        _x = find_largest_epoch_file(_experiment_dir)
+        _x = find_largest_file(_experiment_dir)
         if _x:
             _x_path = os.path.join(_experiment_dir, _x)
             # Update max_file_path and the corresponding experiment_dir if a new max is found
@@ -525,30 +432,18 @@ def get_highest_epoch_path(base_dir, config):
 
     return _max_file_path, _max_experiment_dir  # Return both file path and directory
 
-
-
-def get_experiment_state(config,base_dir):
-    """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
-       Basically this tells us how to continue learning (e.g. we have run two sessions for 
-       100 epochs, and want to continue for another 100 epochs). Return values are
-       None if we are starting from scratch.
-    """
-
-    load_learner_path, _  = get_highest_epoch_path(base_dir, config)
-    #TODO:
-    #We can get start_epoch, interrupt epoch from `get_highest_epoch_path` + save_interval (may be None!)
-    start_epoch=0 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
-    interrupt_epoch = start_epoch + config.save_interval
-
-    #We can also get the learn_type from the load_learner_path + weight_type. 
     
-    if config.weight_type == 'random':
-        learn_type = 'standard'
-    
-    elif 'pretrained' in config.weight_type:
-        learn_type = 'transfer_learning'
 
-    learn_type = learn_type if load_learner_path is None else 'continue_learning'
+# %% ../nbs/utils.ipynb 17
+def save_dict_to_gdrive(d,directory, filename):
+    #e.g. directory='/content/drive/My Drive/random_initial_weights'
+    filepath = directory + '/' + filename + '.pkl'
+    with open(filepath, "wb") as f:
+        pickle.dump(d, f)
 
-    return load_learner_path, learn_type, start_epoch, interrupt_epoch
-    
+def load_dict_from_gdrive(directory,filename):
+    #e.g. directory='/content/drive/My Drive/random_initial_weights'
+    filepath = directory + '/' + filename + '.pkl'
+    with open(filepath, "rb") as f:
+        d = pickle.load(f)
+    return d
