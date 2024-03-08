@@ -14,8 +14,8 @@ import scikitplot
 
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_auc_score,average_precision_score,precision_recall_curve,roc_curve,auc,classification_report,confusion_matrix
-from scipy import interp
-
+#from scipy import interp
+from numpy import interp
 import seaborn as sns
 import pandas as pd
 
