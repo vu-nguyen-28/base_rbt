@@ -399,50 +399,71 @@ def return_max_filename(filename1, filename2):
     # Return the filename with the larger epoch number
     return filename1 if num1 >= num2 else filename2
 
-
 def get_highest_num_path(base_dir, config):
     """
-    Check in all experiment directories derived from the config and return the path
-    to the file with the highest number along with its experiment directory.
+    Check in the specific experiment directory derived from the config and return the path to the file
+    with the highest number along with its experiment directory.
     """
+    # Build the specific experiment directory from base_dir and config
+    experiment_dir, _ = create_experiment_directory(base_dir, config)
+    print(f"Looking in {experiment_dir} for highest num saved")
 
-    experiment_index_path = base_dir + '/experiment_index.json'
-
-    try: 
-        # Load the JSON data from the file
-        with open(experiment_index_path, 'r') as file:
-            experiment_index = json.load(file)
-
-    except FileNotFoundError:
-        return None,None
-
-
-    # Build the main part of the experiment directory from base_dir and config
-    _experiment_dir, _ = create_experiment_directory(base_dir, config)
-    base_experiment_dir = os.path.dirname(_experiment_dir)  # Strip the hash part
-
-    print(f"looking in {base_experiment_dir} for highest num saved")
     _max_file_path = None
-    _max_experiment_dir = None  # To keep track of the directory of the max file
+    _max_experiment_dir = experiment_dir
 
-    for k in list(experiment_index.keys()):
-        _experiment_dir = experiment_index[k]['experiment_dir']
-        if base_experiment_dir not in _experiment_dir:
-            continue
-        _x = find_largest_file(_experiment_dir)
-        if _x:
-            _x_path = os.path.join(_experiment_dir, _x)
-            # Update max_file_path and the corresponding experiment_dir if a new max is found
-            if not _max_file_path or return_max_filename(_x_path, _max_file_path) == _x_path:
-                _max_file_path = _x_path
-                _max_experiment_dir = _experiment_dir
-    
-
-    print(f"Found max file path: {_max_file_path} and max experiment dir: {_max_experiment_dir}")
-    
-    _max_file_path = _max_file_path.split('.')[0] if _max_file_path else None
+    # Find the largest file in the specific experiment directory
+    _x = find_largest_file(experiment_dir)
+    if _x:
+        _max_file_path = os.path.join(experiment_dir, _x)
+        print(f"Found max file path: {_max_file_path} and max experiment dir: {_max_experiment_dir}")
+        _max_file_path = _max_file_path.split('.')[0]
 
     return _max_file_path, _max_experiment_dir  # Return both file path and directory
+
+
+# def get_highest_num_path(base_dir, config):
+#     """
+#     Check in all experiment directories derived from the config and return the path
+#     to the file with the highest number along with its experiment directory.
+#     """
+
+#     experiment_index_path = base_dir + '/experiment_index.json'
+
+#     try: 
+#         # Load the JSON data from the file
+#         with open(experiment_index_path, 'r') as file:
+#             experiment_index = json.load(file)
+
+#     except FileNotFoundError:
+#         return None,None
+
+
+#     # Build the main part of the experiment directory from base_dir and config
+#     _experiment_dir, _ = create_experiment_directory(base_dir, config)
+#     base_experiment_dir = os.path.dirname(_experiment_dir)  # Strip the hash part
+
+#     print(f"looking in {base_experiment_dir} for highest num saved")
+#     _max_file_path = None
+#     _max_experiment_dir = None  # To keep track of the directory of the max file
+
+#     for k in list(experiment_index.keys()):
+#         _experiment_dir = experiment_index[k]['experiment_dir']
+#         if base_experiment_dir not in _experiment_dir:
+#             continue
+#         _x = find_largest_file(_experiment_dir)
+#         if _x:
+#             _x_path = os.path.join(_experiment_dir, _x)
+#             # Update max_file_path and the corresponding experiment_dir if a new max is found
+#             if not _max_file_path or return_max_filename(_x_path, _max_file_path) == _x_path:
+#                 _max_file_path = _x_path
+#                 _max_experiment_dir = _experiment_dir
+    
+
+#     print(f"Found max file path: {_max_file_path} and max experiment dir: {_max_experiment_dir}")
+    
+#     _max_file_path = _max_file_path.split('.')[0] if _max_file_path else None
+
+#     return _max_file_path, _max_experiment_dir  # Return both file path and directory
 
     
 

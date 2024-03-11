@@ -854,7 +854,7 @@ def get_bt_experiment_state(config,base_dir):
     start_epoch=0 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
     
     if start_epoch >= config.epochs:
-        print(f"start_epoch={start_epoch}, but already completed {config.num_epochs} epochs. Exiting.")
+        print(f"start_epoch={start_epoch}, but already completed {config.epochs} epochs. Exiting.")
         sys.exit()
 
     interrupt_epoch = start_epoch + config.save_interval
