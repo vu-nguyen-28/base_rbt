@@ -6,8 +6,9 @@ __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianB
            'helper_get_bt_augs', 'get_bt_imagenet_aug_pipelines', 'get_bt_dermnet_aug_pipelines',
            'get_bt_aug_pipelines', 'get_ssl_dls', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins',
            'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse', 'lf_bt_fun',
-           'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'BarlowTrainer', 'main_bt_train',
-           'get_bt_experiment_state', 'main_bt_experiment']
+           'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'SaveBarlowLearnerCheckpoint',
+           'SaveBarlowLearnerModel', 'load_barlow_model', 'BarlowTrainer', 'main_bt_train', 'get_bt_experiment_state',
+           'main_bt_experiment']
 
 # %% ../nbs/base_model.ipynb 3
 import importlib
@@ -618,6 +619,53 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     axes = learn.barlow_twins.show(n=n)
 
 # %% ../nbs/base_model.ipynb 24
+class SaveBarlowLearnerCheckpoint(Callback):
+    "Save such that can resume training "
+    def __init__(self, experiment_dir,start_epoch=0, save_interval=250,with_opt=True):
+        self.experiment_dir = experiment_dir
+        self.start_epoch = start_epoch
+        self.save_interval = save_interval
+        self.with_opt = with_opt  # Decide whether to save optimizer state as well.
+
+    def after_epoch(self):
+        if (self.epoch+1) % self.save_interval == 0 and self.epoch>=self.start_epoch:
+            print(f"Saving model and learner state at epoch {self.epoch}")
+   
+            checkpoint_filename = f"learner_checkpoint_epoch_{self.epoch}"
+            checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
+            # Save the entire learner object, including the model's parameters and optimizer state.
+            self.learn.save(checkpoint_path, with_opt=self.with_opt)
+            print(f"Checkpoint saved to {checkpoint_path}")
+
+class SaveBarlowLearnerModel(Callback):
+    def __init__(self, experiment_dir):
+        self.experiment_dir = experiment_dir
+
+    def after_fit(self):
+        model_filename = f"trained_model_epoch_{self.epoch}.pth"
+        model_path = os.path.join(self.experiment_dir, model_filename)
+        torch.save(self.learn.model.state_dict(), model_path)
+        print(f"Model state dict saved to {model_path}")
+
+        encoder_filename = f"trained_encoder_epoch_{self.epoch}.pth"
+        encoder_path = os.path.join(self.experiment_dir, encoder_filename)
+        torch.save(self.learn.model.encoder.state_dict(), encoder_path)
+        print(f"encoder state dict saved to {encoder_path}")
+
+
+# %% ../nbs/base_model.ipynb 25
+def load_barlow_model(arch,ps,hs,path):
+
+    encoder = resnet_arch_to_encoder(arch=arch, weight_type='random')
+    model = create_barlow_twins_model(encoder, hidden_size=hs, projection_size=ps)
+    model.load_state_dict(torch.load(path))
+
+    return model
+
+
+    
+
+# %% ../nbs/base_model.ipynb 26
 class BarlowTrainer:
     "Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training."
 
@@ -635,8 +683,8 @@ class BarlowTrainer:
                  load_learner_path=None, #Path to load learner from (optional)
                  experiment_dir=None, #Where to save model checkpoints (optional)
                  start_epoch=0, #Which epoch to start from
-                 save_interval=None #How often to save model checkpoints (optional). 
-
+                 save_interval=None, #How often to save model checkpoints (optional). 
+                 export=False,
                  ):
 
         store_attr()
@@ -659,7 +707,6 @@ class BarlowTrainer:
                            )
               ]
 
-
         learn=Learner(self.dls,self.model,splitter=my_splitter_bt,wd=self.wd, cbs=cbs
                      )
         
@@ -672,16 +719,19 @@ class BarlowTrainer:
 
         
         cbs=[InterruptCallback(interrupt_epoch)]
+        
         if self.experiment_dir:
-            cbs.append(SaveLearnerCheckpoint(experiment_dir=self.experiment_dir,
+            cbs.append(SaveBarlowLearnerCheckpoint(experiment_dir=self.experiment_dir,
                                              start_epoch = self.start_epoch,
                                              save_interval=self.save_interval,
                                              )
                       )
-            
+        
+        if self.export:
+            cbs.append(SaveBarlowLearnerModel(experiment_dir=self.experiment_dir))
+   
         return cbs
                 
-
     
     def bt_transfer_learning(self,freeze_epochs:int,epochs:int,interrupt_epoch:int):
         """If the encoder is already pretrained, we can do transfer learning.
@@ -733,7 +783,7 @@ class BarlowTrainer:
         return self.learn
 
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 27
 def main_bt_train(config,
         start_epoch = 0,
         interrupt_epoch = 100,
@@ -741,7 +791,8 @@ def main_bt_train(config,
         learn_type = 'standard', #can be 'standard', 'transfer_learning', or 'continue_learning'
         experiment_dir=None,
         ):
-    "Basically map from config to training a BT model. Optionally save checkpoints of learner."
+    "Basically map from config to training a BT model. Optionally save checkpoints of learner, to reload and continue;"
+
 
 
     # Initialize the device for model training (CUDA or CPU)
@@ -761,6 +812,11 @@ def main_bt_train(config,
 
     # Train the model with the specified configurations and save `learn` checkpoints
 
+    if experiment_dir and config.epochs == interrupt_epoch:
+        export=True
+    else:
+        export=False
+
     #Setup the bt trainer. basically a `Learner` with a few extra bells and whistles
     bt_trainer = BarlowTrainer(model=model,
                     dls=dls,
@@ -775,7 +831,8 @@ def main_bt_train(config,
                     load_learner_path=load_learner_path,
                     experiment_dir=experiment_dir,
                     start_epoch=start_epoch,
-                    save_interval=config.save_interval
+                    save_interval=config.save_interval,
+                    export=export
                                     )
 
     # Train the model with the specified configurations and save `learn` checkpoints
@@ -783,7 +840,7 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 27
+# %% ../nbs/base_model.ipynb 29
 def get_bt_experiment_state(config,base_dir):
     """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
        Basically this tells us how to continue learning (e.g. we have run two sessions for 
@@ -814,7 +871,7 @@ def get_bt_experiment_state(config,base_dir):
 
     return load_learner_path, learn_type, start_epoch, interrupt_epoch
 
-# %% ../nbs/base_model.ipynb 28
+# %% ../nbs/base_model.ipynb 30
 def main_bt_experiment(config,
                       base_dir,
                       ):

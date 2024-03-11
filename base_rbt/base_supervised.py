@@ -3,8 +3,8 @@
 # %% auto 0
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
-           'encoder_head_splitter', 'SaveLearnerAfterFit', 'SupervisedLearning', 'get_encoder', 'main_sup_train',
-           'get_supervised_experiment_state', 'main_sup_experiment']
+           'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
+           'main_sup_train', 'get_supervised_experiment_state', 'main_sup_experiment']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -245,21 +245,17 @@ def encoder_head_splitter(m):
     return L(sequential(*m.encoder),m.head).map(params)
 
 # %% ../nbs/base_supervised.ipynb 22
-class SaveLearnerAfterFit(Callback):
-    def __init__(self, experiment_dir,num_run=0, with_opt=True):
+class SaveSupLearnerModel(Callback):
+    def __init__(self, experiment_dir,num_run):
         self.experiment_dir = experiment_dir
-        self.num_run=num_run
-        self.with_opt = with_opt  # Decide whether to save optimizer state as well.
-
+        self.num_run = num_run
     def after_fit(self):
-            print(f"Saving model and learner state at epoch {self.epoch}")
-            checkpoint_filename = f"learner_checkpoint_epoch_{self.epoch}"
+        model_filename = f"trained_model_num_run_{self.num_run}.pth"
+        model_path = os.path.join(self.experiment_dir, model_filename)
+        torch.save(self.learn.model.state_dict(), model_path)
+        print(f"Model state dict saved to {model_path}")
 
-            checkpoint_filename = f"learner_checkpoint_num_run_{self.num_run}"
-            checkpoint_path = os.path.join(self.experiment_dir, checkpoint_filename)
-            # Save the entire learner object, including the model's parameters and optimizer state.
-            self.learn.save(checkpoint_path, with_opt=self.with_opt)
-            print(f"Checkpoint saved to {checkpoint_path}")
+
 
 # %% ../nbs/base_supervised.ipynb 23
 class SupervisedLearning:
@@ -308,7 +304,7 @@ class SupervisedLearning:
         #NOTE:
         cbs=[] #can add more here if needed.
         if self.experiment_dir:
-            cbs.append(SaveLearnerAfterFit(experiment_dir=self.experiment_dir,
+            cbs.append(SaveSupLearnerModel(experiment_dir=self.experiment_dir,
                                                 num_run = self.num_run,
                                             )
                         )
@@ -360,26 +356,33 @@ class SupervisedLearning:
 
 
 # %% ../nbs/base_supervised.ipynb 24
-def get_encoder(arch,weight_type,load_learner_path=None,device='cpu'):
-    "Get an encoder for supervised learner. If load_learner_path is not None, then load the learner and return the encoder."
+def get_encoder(arch,weight_type,load_pretrained_path=None):
+    "Get an encoder for supervised learner. If load_pretrained_path is not None, load the weights from that path."
 
-    if not load_learner_path:
+    encoder = resnet_arch_to_encoder(arch,weight_type)
+    if not load_pretrained_path:
 
-        return resnet_arch_to_encoder(arch,weight_type)
+        return encoder
 
     else:
 
-        learn = load_learner(load_learner_path,cpu=(device=='cpu'))
+        encoder.load_state_dict(torch.load(load_pretrained_path))
         
-        return learn.model.encoder                           
+        return encoder                          
 
 # %% ../nbs/base_supervised.ipynb 25
+def load_sup_model(config,numout,path):
+
+    #Setup model with random weights
+    encoder = get_encoder(arch=config.arch,weight_type='random',load_pretrained_path=None)
+    model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
+    
+    #load model
+    model.load_state_dict(torch.load(path))
+
+
+# %% ../nbs/base_supervised.ipynb 26
 def main_sup_train(config,
-        load_learner_path=None, #path to load encoder if applicable
-                                #NOTE: if config.weight_type = dermnet_bt_pretrained
-                                #How do we want to handle construction of load_learner_path?
-
-
         num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
         experiment_dir=None, #where to save checkpoints
         ):
@@ -388,6 +391,10 @@ def main_sup_train(config,
 
     if 'pretrained' in config.weight_type:
         test_eq(config.learn_type in ['semi_supervised','linear_evaluation'],True)
+
+    if config.weight_type == 'dermnet_bt_pretrained':
+        print(f"For weight_type={config.weight_type}, make sure you have the correct path. The path to load pretrained encoder we are using is: {config.load_pretrained_path}")
+
 
     # #cuda or cpu
     device = default_device()
@@ -411,13 +418,9 @@ def main_sup_train(config,
 
     #get model: e.g. via loading from checkpoint, or a pretrained model
 
-    n_out = len(dls_train.vocab)
-
-
-    encoder = get_encoder(arch=config.arch,weight_type=config.weight_type, device=device,load_learner_path=load_learner_path)
-
-
-    model = LM(encoder=encoder, numout=n_out, encoder_dimension=config.encoder_dimension)
+    numout = len(dls_train.vocab)
+    encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
+    model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
 
     supervised_trainer = SupervisedLearning(model=model,
                             dls_train=dls_train,
@@ -443,7 +446,8 @@ def main_sup_train(config,
     metrics['int_to_classes'] = int_to_classes
     metrics['vocab'] = vocab
 
-    save_dict_to_gdrive(metrics, experiment_dir, 'metrics')
+    if experiment_dir:
+        save_dict_to_gdrive(metrics, experiment_dir, f'metrics_num_run_{num_run}')
 
     #metrics = load_dict_from_gdrive(experiment_dir, 'metrics')
 
@@ -452,7 +456,7 @@ def main_sup_train(config,
     
 
 
-# %% ../nbs/base_supervised.ipynb 26
+# %% ../nbs/base_supervised.ipynb 27
 def get_supervised_experiment_state(config,base_dir):
     """Get the load_learner_path, num_run, for supervised experiment.
        Basically tells us what run we are up to. `load_learner_path` is the path to the highest numbered checkpoint.
@@ -471,10 +475,9 @@ def get_supervised_experiment_state(config,base_dir):
 
     return load_learner_path, num_run
 
-# %% ../nbs/base_supervised.ipynb 27
+# %% ../nbs/base_supervised.ipynb 28
 def main_sup_experiment(config,
                         base_dir,
-                        load_learner_path=None, #path to load encoder if applicable
                        ):
         """Run a supervised learning experiment with the given configuration and save the results to the experiment directory. Return the experiment directory and experiment hash.
         """
@@ -484,10 +487,11 @@ def main_sup_experiment(config,
         #i.e. for each config, we will train several models.
         #TODO:
 
-        _, num_run = get_supervised_experiment_state(config,base_dir) 
+        _, num_run = get_supervised_experiment_state(config,base_dir)
+
+        print(f"num_run={num_run}")
 
         main_sup_train(config=config,
-                      load_learner_path=load_learner_path,#path to load encoder if applicable
                       num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
                       experiment_dir=experiment_dir,
                       )
@@ -506,5 +510,5 @@ def main_sup_experiment(config,
         # Any other metadata or results summary that is relevant to the experiment
                         })
 
-        return experiment_dir,experiment_hash #Return the experiment_dir so we can easily access the results of the experiment
+        return experiment_dir,experiment_hash,num_run #Return the experiment_dir so we can easily access the results of the experiment
 

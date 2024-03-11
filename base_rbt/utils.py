@@ -2,7 +2,7 @@
 
 # %% auto 0
 __all__ = ['cfg', 'PACKAGE_NAME', 'test_grad_on', 'test_grad_off', 'seed_everything', 'adjust_config_with_derived_values',
-           'load_config', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
+           'load_config', 'pretty_print_ns', 'get_resnet_encoder', 'resnet_arch_to_encoder', 'generate_config_hash',
            'create_experiment_directory', 'save_configuration', 'save_metadata_file', 'update_experiment_index',
            'get_latest_commit_hash', 'setup_experiment', 'InterruptCallback', 'SaveLearnerCheckpoint', 'extract_number',
            'find_largest_file', 'return_max_filename', 'get_highest_num_path', 'save_dict_to_gdrive',
@@ -88,6 +88,10 @@ def adjust_config_with_derived_values(config):
     else :
         raise ValueError(f"Architecture {config.arch} not supported")
 
+    for key, value in list(config.__dict__.items()): 
+        if value == 'none':
+            config.__dict__[key] = None
+
     return config
 
 def load_config(file_path):
@@ -99,7 +103,15 @@ def load_config(file_path):
 
     return config
 
-# %% ../nbs/utils.ipynb 9
+# %% ../nbs/utils.ipynb 8
+def pretty_print_ns(ns):
+    """
+    Pretty print a SimpleNamespace object
+    """
+    for key, value in ns.__dict__.items():
+        print(f"{key}: {value}")
+
+# %% ../nbs/utils.ipynb 10
 class _SmallRes(nn.Module):
     def __init__(self, num_classes=1000):
         super().__init__()
@@ -138,7 +150,7 @@ class _SmallRes(nn.Module):
         return x
 
 
-# %% ../nbs/utils.ipynb 10
+# %% ../nbs/utils.ipynb 11
 @torch.no_grad()
 def get_resnet_encoder(model,n_in=3):
     model = create_body(model, n_in=n_in, pretrained=False, cut=len(list(model.children()))-1)
@@ -203,7 +215,7 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
 
 
 
-# %% ../nbs/utils.ipynb 11
+# %% ../nbs/utils.ipynb 12
 def generate_config_hash(config):
     """
     Generates a unique hash for a given experiment configuration.
@@ -229,7 +241,7 @@ def generate_config_hash(config):
     return short_hash
 
 
-# %% ../nbs/utils.ipynb 14
+# %% ../nbs/utils.ipynb 15
 def create_experiment_directory(base_dir, config):
     # Generate a unique hash for the configuration
     unique_hash = generate_config_hash(config)
@@ -323,7 +335,7 @@ def setup_experiment(config,base_dir):
     return experiment_dir, experiment_hash,git_commit_hash
 
 
-# %% ../nbs/utils.ipynb 15
+# %% ../nbs/utils.ipynb 16
 class InterruptCallback(Callback):
     def __init__(self, interrupt_epoch):
         super().__init__()
@@ -352,7 +364,7 @@ class SaveLearnerCheckpoint(Callback):
             print(f"Checkpoint saved to {checkpoint_path}")
 
 
-# %% ../nbs/utils.ipynb 16
+# %% ../nbs/utils.ipynb 17
 def extract_number(filename):
     """Extract the number from end of  filename. e.g. `epoch`"""
     #pattern = re.compile(r"_epoch_(\d+)\.pt[h]?")
@@ -434,7 +446,7 @@ def get_highest_num_path(base_dir, config):
 
     
 
-# %% ../nbs/utils.ipynb 17
+# %% ../nbs/utils.ipynb 18
 def save_dict_to_gdrive(d,directory, filename):
     #e.g. directory='/content/drive/My Drive/random_initial_weights'
     filepath = directory + '/' + filename + '.pkl'
