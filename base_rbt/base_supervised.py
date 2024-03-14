@@ -4,7 +4,7 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'main_sup_train', 'get_supervised_experiment_state', 'main_sup_experiment']
+           'main_sup_train', 'get_supervised_experiment_state', 'main_sup_experiment', 'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -488,16 +488,33 @@ def main_sup_experiment(config,
         #i.e. for each config, we will train several models.
         #TODO:
 
-        _, num_run = get_supervised_experiment_state(config,base_dir)
-
-        print(f"num_run={num_run}")
-
-        main_sup_train(config=config,
-                      num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
-                      experiment_dir=experiment_dir,
-                      )
+        #repeatedly train models until we have done config.num_runs runs. Possibly picking up where we left of.
+        num_run=0
+        while num_run<config.num_runs:
+            _, num_run = get_supervised_experiment_state(config,base_dir)
+            main_sup_train(config=config,
+                        num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+                        experiment_dir=experiment_dir,
+                        )
     
-  
+        #We need to have completed all runs to get this metric
+        all_metrics={}
+        for num_run in range(1,config.num_runs+1):
+            
+            metrics = load_dict_from_gdrive(experiment_dir, f'metrics_num_run_{num_run}')
+            all_metrics[num_run]=metrics
+
+            print(f"num_run={num_run},acc={metrics['acc']}, metrics={metrics}")
+
+    
+        vocab = metrics['vocab']
+        print(f"all_metrics.keys() = {all_metrics.keys()}")
+        print(f"all_metrics[1].keys() = {all_metrics[1].keys()}")
+        print('calling `Mean_Results`')
+        mean_results = Mean_Results(all_metrics,vocab)
+
+        save_dict_to_gdrive(mean_results, experiment_dir, 'mean_results')
+
 
         # Save a metadata file in the experiment directory with the Git commit hash and other details
         save_metadata_file(experiment_dir=experiment_dir, git_commit_hash=git_commit_hash)
@@ -513,3 +530,22 @@ def main_sup_experiment(config,
 
         return experiment_dir,experiment_hash,num_run #Return the experiment_dir so we can easily access the results of the experiment
 
+
+# %% ../nbs/base_supervised.ipynb 32
+def main_fine_tune_isic(config,base_dir):
+    "Just call `main_sup_experiment` for each different `pct_dataset_train` value and for given config"
+
+    print('base config is:\n')
+    pretty_print_ns(config)
+    for pct_dataset_train in [0.01,0.1,1.0]:
+    
+        config.pct_dataset_train = pct_dataset_train
+
+        if config.pct_dataset_train==0.01:
+            config.freeze_epochs=10
+        elif config.pct_dataset_train==0.1:
+            config.freeze_epochs=5
+        
+        print('fine tuning with config:\n')
+        pretty_print_ns(config)
+        main_sup_experiment(config,base_dir)
