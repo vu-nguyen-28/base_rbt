@@ -11,7 +11,7 @@ sup_augs: supervised_isic_augmentations # other options: bt_`dataset_name`_aug_p
 wd: 0.0
 freeze_epochs: 1
 num_it: 100
-pct_dataset_train: 1.0 #may set to 0.01, 0.1, 1.0 e.g. for isic dataset
+pct_dataset_train: 1.0 #set to 0.5,0.25 as well
 pct_dataset_test: 1.0  #generally this is 1.0 outside of testing code
 epochs: 40  # epochs to train BT variant
 num_runs: 35 #Number of runs to perform

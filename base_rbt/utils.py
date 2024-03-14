@@ -160,7 +160,8 @@ def get_resnet_encoder(model,n_in=3):
 
 @torch.no_grad()
 def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'resnet50'],
-                           weight_type: Literal['random', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained'] = 'random'):
+                           weight_type: Literal['random', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained',
+                                               'dermnet_bt_pretrained','imgnet_bt_dermnet_bt_pretrained'] = 'random'):
     """Given a ResNet architecture, return the encoder configured for 3 input channels.
        The 'weight_type' argument specifies the weight initialization strategy.
 

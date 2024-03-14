@@ -422,7 +422,6 @@ def main_sup_train(config,
     encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
     model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
 
-    print(f"Setup model. First param sum is: {next(iter(model.parameters())).sum()}")
 
     supervised_trainer = SupervisedLearning(model=model,
                             dls_train=dls_train,
@@ -458,7 +457,7 @@ def main_sup_train(config,
     
 
 
-# %% ../nbs/base_supervised.ipynb 27
+# %% ../nbs/base_supervised.ipynb 28
 def get_supervised_experiment_state(config,base_dir):
     """Get the load_learner_path, num_run, for supervised experiment.
        Basically tells us what run we are up to. `load_learner_path` is the path to the highest numbered checkpoint.
@@ -477,7 +476,7 @@ def get_supervised_experiment_state(config,base_dir):
 
     return load_learner_path, num_run
 
-# %% ../nbs/base_supervised.ipynb 28
+# %% ../nbs/base_supervised.ipynb 29
 def main_sup_experiment(config,
                         base_dir,
                        ):
@@ -493,7 +492,7 @@ def main_sup_experiment(config,
         num_run=0
         while num_run<config.num_runs:
             _, num_run = get_supervised_experiment_state(config,base_dir)
-            learn,metrics=main_sup_train(config=config,
+            main_sup_train(config=config,
                         num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
                         experiment_dir=experiment_dir,
                         )
@@ -533,20 +532,20 @@ def main_sup_experiment(config,
         return experiment_dir,experiment_hash,num_run #Return the experiment_dir so we can easily access the results of the experiment
 
 
-# %% ../nbs/base_supervised.ipynb 32
+# %% ../nbs/base_supervised.ipynb 33
 def main_fine_tune_isic(config,base_dir):
     "Just call `main_sup_experiment` for each different `pct_dataset_train` value and for given config"
 
     print('base config is:\n')
     pretty_print_ns(config)
-    for pct_dataset_train in [0.01,0.1,1.0]:
+    for pct_dataset_train in [1.0,0.5,0.25]:
     
         config.pct_dataset_train = pct_dataset_train
 
-        if config.pct_dataset_train==0.01:
-            config.freeze_epochs=10
-        elif config.pct_dataset_train==0.1:
-            config.freeze_epochs=5
+        if config.pct_dataset_train==0.5:
+            config.freeze_epochs=2
+        elif config.pct_dataset_train==0.25:
+            config.freeze_epochs=4
         
         print('fine tuning with config:\n')
         pretty_print_ns(config)
