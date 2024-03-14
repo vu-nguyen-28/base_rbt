@@ -7,6 +7,7 @@ __all__ = ['get_bt_cifar10_train_dls', 'get_supervised_cifar10_train_dls', 'get_
 # %% ../nbs/cifar10_dataloading.ipynb 3
 import torch
 from fastai.vision.all import *
+import time #for resetting to random state
 # from self_supervised.augmentations import *
 # from self_supervised.layers import *
 import random
@@ -48,6 +49,7 @@ def load_cifar10_train_data(pct_dataset=1.0):
     seed_everything(seed=42)
     fnames_train = fnames_train.shuffle()
     #TODO: test that always orders in same way
+    seed_everything(seed=int(time.time())) #reset to (pseudo)-random state
     
     labels_train = [label_func(fname) for fname in fnames_train]
     n = int(len(fnames_train) * pct_dataset)

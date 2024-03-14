@@ -416,12 +416,13 @@ def main_sup_train(config,
 
     #get encoder: e.g. via loading from checkpoint, or a pretrained model
 
-
     #get model: e.g. via loading from checkpoint, or a pretrained model
 
     numout = len(dls_train.vocab)
     encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
     model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
+
+    print(f"Setup model. First param sum is: {next(iter(model.parameters())).sum()}")
 
     supervised_trainer = SupervisedLearning(model=model,
                             dls_train=dls_train,
@@ -492,10 +493,11 @@ def main_sup_experiment(config,
         num_run=0
         while num_run<config.num_runs:
             _, num_run = get_supervised_experiment_state(config,base_dir)
-            main_sup_train(config=config,
+            learn,metrics=main_sup_train(config=config,
                         num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
                         experiment_dir=experiment_dir,
                         )
+
     
         #We need to have completed all runs to get this metric
         all_metrics={}
