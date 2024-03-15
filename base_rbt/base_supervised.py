@@ -538,14 +538,17 @@ def main_fine_tune_isic(config,base_dir):
 
     print('base config is:\n')
     pretty_print_ns(config)
+    print('\n')
     for pct_dataset_train in [1.0,0.5,0.25]:
     
         config.pct_dataset_train = pct_dataset_train
 
         if config.pct_dataset_train==0.5:
             config.freeze_epochs=2
+            config.num_run=5
         elif config.pct_dataset_train==0.25:
             config.freeze_epochs=4
+            config.num_run=5
         
         print('fine tuning with config:\n')
         pretty_print_ns(config)
