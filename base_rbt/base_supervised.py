@@ -4,7 +4,8 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'main_sup_train', 'get_supervised_experiment_state', 'main_sup_experiment', 'main_fine_tune_isic']
+           'save_metrics', 'main_sup_train', 'get_largest_metric_file', 'get_supervised_experiment_state',
+           'main_sup_experiment', 'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -338,7 +339,6 @@ class SupervisedLearning:
         lrs = self.learn.lr_find(num_it=self.num_it) #find learning rate
         self.learn.fit_one_cycle(epochs, lrs.valley,cbs=self._get_training_cbs())
         return self.learn
-
     
     def train(self,learn_type, freeze_epochs:int,epochs:int):
 
@@ -383,12 +383,40 @@ def load_sup_model(config,numout,path):
 
 
 # %% ../nbs/base_supervised.ipynb 26
+def save_metrics(model, #trained model
+                 aug_pipelines_supervised,
+                 experiment_dir, #where to save
+                 num_run, #how to name metrics files 
+                 dls_train, #just used to compute vocab
+                 dls_test, #test set
+                 ):
+    
+        #Save this in experiment_dir also
+    classes_to_int={v:i for i,v in enumerate(dls_train.vocab)}
+    int_to_classes = {i: v for i, v in enumerate(dls_train.vocab)}
+    vocab=dls_train.vocab    
+
+    metrics = get_dls_metrics(dls_test,model,aug_pipelines_supervised,int_to_classes)
+    metrics['classes_to_int'] = classes_to_int
+    metrics['int_to_classes'] = int_to_classes
+    metrics['vocab'] = vocab
+
+    if experiment_dir:
+        save_dict_to_gdrive(metrics, experiment_dir, f'metrics_num_run_{num_run}')
+
+    return metrics
+
+# %% ../nbs/base_supervised.ipynb 27
 def main_sup_train(config,
         num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+        train=True, #if False, load model and compute and save metrics only
         experiment_dir=None, #where to save checkpoints
         ):
     
-    "Basically map from config to training a supervised model. Optionally save checkpoints of learner."
+    """Basically map from config to training a supervised model. Optionally save checkpoints of learner.
+        Also compute metrics on test set and save. If train is `False` load model according to num_run (means
+        it already exists) and just compute metrics
+    """
 
     if 'pretrained' in config.weight_type:
         test_eq(config.learn_type in ['semi_supervised','linear_evaluation'],True)
@@ -435,21 +463,18 @@ def main_sup_train(config,
                             )
 
     # Train the model with the specified configurations and save `learn` checkpoints
-    learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
-                
-    #Save this in experiment_dir also
-    classes_to_int={v:i for i,v in enumerate(dls_train.vocab)}
-    int_to_classes = {i: v for i, v in enumerate(dls_train.vocab)}
-    vocab=dls_train.vocab    
-
-    metrics = get_dls_metrics(dls_test,model,aug_pipelines_supervised,int_to_classes)
-    metrics['classes_to_int'] = classes_to_int
-    metrics['int_to_classes'] = int_to_classes
-    metrics['vocab'] = vocab
-
-    if experiment_dir:
-        save_dict_to_gdrive(metrics, experiment_dir, f'metrics_num_run_{num_run}')
-
+    if train: 
+        learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
+        model = learn.model
+    else:
+        print(f"train is {train}. Loading model from {experiment_dir}.")
+        learn=None
+        path = os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
+        load_sup_model(config,numout,path) #load state_dict
+        model.to(device)
+    
+    metrics = save_metrics(model, aug_pipelines_supervised, experiment_dir, num_run, dls_train, dls_test)      
+    
     #metrics = load_dict_from_gdrive(experiment_dir, 'metrics')
 
     return learn,metrics
@@ -457,15 +482,41 @@ def main_sup_train(config,
     
 
 
-# %% ../nbs/base_supervised.ipynb 28
-def get_supervised_experiment_state(config,base_dir):
+# %% ../nbs/base_supervised.ipynb 29
+def get_largest_metric_file(experiment_dir):
+    metric_files = [f for f in os.listdir(experiment_dir) if 'metrics' in f]
+    
+    if not metric_files:
+        return None,None
+    
+    max_num = -1
+    max_file = ''
+    
+    for file in metric_files:
+        match = re.search(r'_(\d+)\.pkl$', file)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+                max_file = file
+    
+    num = max_file.split('.pkl')[0].split('_')[-1]
+    return max_file,num
+
+# %% ../nbs/base_supervised.ipynb 31
+def get_supervised_experiment_state(config,base_dir,experiment_dir):
     """Get the load_learner_path, num_run, for supervised experiment.
        Basically tells us what run we are up to. `load_learner_path` is the path to the highest numbered checkpoint.
        so far. `num_run` is the number of the next run. If num_run>config.num_runs, then we are done.
+
+       We also have to find out what results computation we are up. e.g. we may have finished training for 
+       a given num_run but not computed the metrics
     """
 
-    load_learner_path, _  = get_highest_num_path(base_dir, config)    
 
+    load_learner_path, _  = get_highest_num_path(base_dir, config) #we construct experiment_dir in `get_highest_num_path` as well
+                                                                    #but also happen to need it for `metric_list` calculation.
+    
     #Note that if 
     num_run=1 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
 
@@ -476,7 +527,7 @@ def get_supervised_experiment_state(config,base_dir):
 
     return load_learner_path, num_run
 
-# %% ../nbs/base_supervised.ipynb 29
+# %% ../nbs/base_supervised.ipynb 32
 def main_sup_experiment(config,
                         base_dir,
                        ):
@@ -488,30 +539,46 @@ def main_sup_experiment(config,
         #i.e. for each config, we will train several models.
         #TODO:
 
-        #repeatedly train models until we have done config.num_runs runs. Possibly picking up where we left of.
+        #repeatedly train models until we have done config.num_runs runs. Possibly picking up where we left off.
         num_run=0
         while num_run<config.num_runs:
-            _, num_run = get_supervised_experiment_state(config,base_dir)
+            _, num_run = get_supervised_experiment_state(config,base_dir,experiment_dir)
             main_sup_train(config=config,
                         num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+                        train=True,
                         experiment_dir=experiment_dir,
                         )
+            
+        #Possibly we haven't computed metrics for all models yet, e.g. if the session crashed.
+        #We can just compute metrics for all models now, unless it's already been done
+    
 
     
         #We need to have completed all runs to get this metric
         all_metrics={}
         for num_run in range(1,config.num_runs+1):
+
+            print(f"num_run is {num_run}")
+            try: 
+                metrics = load_dict_from_gdrive(experiment_dir, f'metrics_num_run_{num_run}')
             
-            metrics = load_dict_from_gdrive(experiment_dir, f'metrics_num_run_{num_run}')
+            #Possible we have saved the model but not computed metrics yet, in case
+            #e.g. colab exited in the middle of the calculation.
+            except FileNotFoundError:
+                print(f"metrics_num_run_{num_run} not found. Computing now:")
+                
+                _,metrics = main_sup_train(config=config,
+                        num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+                        train=False,
+                        experiment_dir=experiment_dir,
+                                        )
+            
             all_metrics[num_run]=metrics
 
             print(f"num_run={num_run},acc={metrics['acc']}, metrics={metrics}")
 
     
         vocab = metrics['vocab']
-        print(f"all_metrics.keys() = {all_metrics.keys()}")
-        print(f"all_metrics[1].keys() = {all_metrics[1].keys()}")
-        print('calling `Mean_Results`')
         mean_results = Mean_Results(all_metrics,vocab)
 
         save_dict_to_gdrive(mean_results, experiment_dir, 'mean_results')
@@ -532,7 +599,7 @@ def main_sup_experiment(config,
         return experiment_dir,experiment_hash,num_run #Return the experiment_dir so we can easily access the results of the experiment
 
 
-# %% ../nbs/base_supervised.ipynb 33
+# %% ../nbs/base_supervised.ipynb 36
 def main_fine_tune_isic(config,base_dir):
     "Just call `main_sup_experiment` for each different `pct_dataset_train` value and for given config"
 

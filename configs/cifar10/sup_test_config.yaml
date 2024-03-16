@@ -13,6 +13,6 @@ freeze_epochs: 1
 num_it: 10
 pct_dataset_train: 0.01 #may set to 0.01, 0.1, 1.0 e.g. for isic dataset
 pct_dataset_test: 0.1  #generally this is 1.0 outside of testing code
-epochs: 5  # epochs to train BT variant
-num_runs: 3 #Number of runs to perform
+epochs: 1  # epochs to train BT variant
+num_runs: 2 #Number of runs to perform
 load_pretrained_path: none #/content/drive/MyDrive/Experiments/barlow_twins/SSL/dermnet/resnet50/970b7b4b/trained_encoder_epoch_499.pth
