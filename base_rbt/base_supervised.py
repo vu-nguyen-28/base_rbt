@@ -4,8 +4,8 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'save_metrics', 'main_sup_train', 'get_largest_metric_file', 'get_supervised_experiment_state',
-           'main_sup_experiment', 'main_fine_tune_isic']
+           'save_metrics', 'main_sup_train', 'get_largest_metric_file', 'check_run_exists', 'main_sup_experiment',
+           'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -418,6 +418,9 @@ def main_sup_train(config,
         it already exists) and just compute metrics
     """
 
+    if num_run > config.num_runs and train:
+        return
+
     if 'pretrained' in config.weight_type:
         test_eq(config.learn_type in ['semi_supervised','linear_evaluation'],True)
 
@@ -504,28 +507,16 @@ def get_largest_metric_file(experiment_dir):
     return max_file,num
 
 # %% ../nbs/base_supervised.ipynb 31
-def get_supervised_experiment_state(config,base_dir,experiment_dir):
-    """Get the load_learner_path, num_run, for supervised experiment.
-       Basically tells us what run we are up to. `load_learner_path` is the path to the highest numbered checkpoint.
-       so far. `num_run` is the number of the next run. If num_run>config.num_runs, then we are done.
+def check_run_exists(experiment_dir, num_run):
+    # Check if the file for the given num_run exists
+    path=os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
+    return os.path.exists(path)
 
-       We also have to find out what results computation we are up. e.g. we may have finished training for 
-       a given num_run but not computed the metrics
-    """
+# def check_metrics_exists(experiment_dir, num_run):
+#     # Check if the file for the given num_run exists
+#     path=os.path.join(experiment_dir, f"metrics_num_run_{num_run}.pth")
+#     return os.path.exists(path)
 
-
-    load_learner_path, _  = get_highest_num_path(base_dir, config) #we construct experiment_dir in `get_highest_num_path` as well
-                                                                    #but also happen to need it for `metric_list` calculation.
-    
-    #Note that if 
-    num_run=1 if load_learner_path is None else int(load_learner_path.split('_')[-1])+1
-
-    if num_run>config.num_runs:
-        print(f"num_run={num_run}, but already completed {config.num_runs} runs. Exiting.")
-        sys.exit()
-    
-
-    return load_learner_path, num_run
 
 # %% ../nbs/base_supervised.ipynb 32
 def main_sup_experiment(config,
@@ -539,20 +530,21 @@ def main_sup_experiment(config,
         #i.e. for each config, we will train several models.
         #TODO:
 
-        #repeatedly train models until we have done config.num_runs runs. Possibly picking up where we left off.
-        num_run=0
-        while num_run<config.num_runs:
-            _, num_run = get_supervised_experiment_state(config,base_dir,experiment_dir)
-            main_sup_train(config=config,
-                        num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
-                        train=True,
-                        experiment_dir=experiment_dir,
-                        )
+        #Training
+        num_run = 1
+        while num_run <= config.num_runs:
+            if not check_run_exists(base_dir, num_run):
+                main_sup_train(
+                    config=config,
+                    num_run=num_run,
+                    train=True,
+                    experiment_dir=experiment_dir,
+                              )
+        
+            num_run += 1
             
         #Possibly we haven't computed metrics for all models yet, e.g. if the session crashed.
         #We can just compute metrics for all models now, unless it's already been done
-    
-
     
         #We need to have completed all runs to get this metric
         all_metrics={}
