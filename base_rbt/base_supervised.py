@@ -566,9 +566,6 @@ def main_sup_experiment(config,
                                         )
             
             all_metrics[num_run]=metrics
-
-            print(f"num_run={num_run},acc={metrics['acc']}, metrics={metrics}")
-
     
         vocab = metrics['vocab']
         mean_results = Mean_Results(all_metrics,vocab)
