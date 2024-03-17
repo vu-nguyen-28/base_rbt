@@ -417,16 +417,16 @@ def main_sup_train(config,
         Also compute metrics on test set and save. If train is `False` load model according to num_run (means
         it already exists) and just compute metrics
     """
-
-    if num_run > config.num_runs and train:
-        return
+    if num_run:
+        if num_run > config.num_runs and train:
+            print('num_run > config.num_runs, and in training mode. Exiting.')
+            return
 
     if 'pretrained' in config.weight_type:
         test_eq(config.learn_type in ['semi_supervised','linear_evaluation'],True)
 
     if config.weight_type == 'dermnet_bt_pretrained':
         print(f"For weight_type={config.weight_type}, make sure you have the correct path. The path to load pretrained encoder we are using is: {config.load_pretrained_path}")
-
 
     # #cuda or cpu
     device = default_device()
@@ -533,7 +533,8 @@ def main_sup_experiment(config,
         #Training
         num_run = 1
         while num_run <= config.num_runs:
-            if not check_run_exists(base_dir, num_run):
+            if not check_run_exists(experiment_dir, num_run):
+                print(f"num_run={num_run} doesn't exist. Training now.")
                 main_sup_train(
                     config=config,
                     num_run=num_run,
@@ -550,7 +551,6 @@ def main_sup_experiment(config,
         all_metrics={}
         for num_run in range(1,config.num_runs+1):
 
-            print(f"num_run is {num_run}")
             try: 
                 metrics = load_dict_from_gdrive(experiment_dir, f'metrics_num_run_{num_run}')
             
