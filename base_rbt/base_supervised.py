@@ -470,7 +470,7 @@ def main_sup_train(config,
         learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
         model = learn.model
     else:
-        print(f"train is {train}. Loading model from {experiment_dir}.")
+        print(f"train is {train}. Loading model from {experiment_dir} to compute metrics.")
         learn=None
         path = os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
         load_sup_model(config,numout,path) #load state_dict
