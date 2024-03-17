@@ -4,8 +4,7 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'save_metrics', 'main_sup_train', 'get_largest_metric_file', 'check_run_exists', 'main_sup_experiment',
-           'main_fine_tune_isic']
+           'save_metrics', 'main_sup_train', 'check_run_exists', 'main_sup_experiment', 'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -380,6 +379,7 @@ def load_sup_model(config,numout,path):
     
     #load model
     model.load_state_dict(torch.load(path))
+    return model
 
 
 # %% ../nbs/base_supervised.ipynb 26
@@ -450,61 +450,42 @@ def main_sup_train(config,
     #get model: e.g. via loading from checkpoint, or a pretrained model
 
     numout = len(dls_train.vocab)
-    encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
-    model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
 
-
-    supervised_trainer = SupervisedLearning(model=model,
-                            dls_train=dls_train,
-                            aug_pipelines_supervised=aug_pipelines_supervised,
-                            n_in=config.n_in,
-                            wd=config.wd,
-                            device=device,
-                            num_it=config.num_it,
-                            num_run=num_run,
-                            experiment_dir=experiment_dir,
-                            )
-
-    # Train the model with the specified configurations and save `learn` checkpoints
-    if train: 
-        learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
-        model = learn.model
-    else:
+   
+    if not train: #just load model
         print(f"train is {train}. Loading model from {experiment_dir} to compute metrics.")
         learn=None
         path = os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
-        load_sup_model(config,numout,path) #load state_dict
+        model=load_sup_model(config,numout,path) #load state_dict
         model.to(device)
+   
+
+    else: #train model
+        encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
+        model = LM(encoder=encoder, numout=numout, encoder_dimension=config.encoder_dimension)
+
+        supervised_trainer = SupervisedLearning(model=model,
+                                dls_train=dls_train,
+                                aug_pipelines_supervised=aug_pipelines_supervised,
+                                n_in=config.n_in,
+                                wd=config.wd,
+                                device=device,
+                                num_it=config.num_it,
+                                num_run=num_run,
+                                experiment_dir=experiment_dir,
+                                )
+
+
+        learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
+        model = learn.model
     
+    #compute metrics and save
     metrics = save_metrics(model, aug_pipelines_supervised, experiment_dir, num_run, dls_train, dls_test)      
     
-    #metrics = load_dict_from_gdrive(experiment_dir, 'metrics')
-
     return learn,metrics
 
     
 
-
-# %% ../nbs/base_supervised.ipynb 29
-def get_largest_metric_file(experiment_dir):
-    metric_files = [f for f in os.listdir(experiment_dir) if 'metrics' in f]
-    
-    if not metric_files:
-        return None,None
-    
-    max_num = -1
-    max_file = ''
-    
-    for file in metric_files:
-        match = re.search(r'_(\d+)\.pkl$', file)
-        if match:
-            num = int(match.group(1))
-            if num > max_num:
-                max_num = num
-                max_file = file
-    
-    num = max_file.split('.pkl')[0].split('_')[-1]
-    return max_file,num
 
 # %% ../nbs/base_supervised.ipynb 31
 def check_run_exists(experiment_dir, num_run):
