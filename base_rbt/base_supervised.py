@@ -415,7 +415,7 @@ def main_sup_train(config,
     
     """Basically map from config to training a supervised model. Optionally save checkpoints of learner.
         Also compute metrics on test set and save. If train is `False` load model according to num_run (means
-        it already exists) and just compute metrics
+        it already exists) and just compute metrics.
     """
     if num_run:
         if num_run > config.num_runs and train:
@@ -552,7 +552,6 @@ def main_sup_experiment(config,
         mean_results = Mean_Results(all_metrics,vocab)
 
         save_dict_to_gdrive(mean_results, experiment_dir, 'mean_results')
-
 
         # Save a metadata file in the experiment directory with the Git commit hash and other details
         save_metadata_file(experiment_dir=experiment_dir, git_commit_hash=git_commit_hash)
