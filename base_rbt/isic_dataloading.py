@@ -31,8 +31,10 @@ def get_supervised_isic_test_dls(bs,
 
     for attempt in range(max_retries):
         try:
-            resized_dir = "/content/drive/MyDrive/ISIC_2019_Test_Resized/"
-            labels_file = "/content/drive/MyDrive/ISIC_2019_Test_Resized/labels.csv"
+            #resized_dir = "/content/drive/MyDrive/ISIC_2019_Test_Resized/"
+            #labels_file = "/content/drive/MyDrive/ISIC_2019_Test_Resized/labels.csv"
+            resized_dir = "/content/isic_dataset/ISIC_2019_Test_Resized/"
+            labels_file = "/content/isic_dataset/ISIC_2019_Test_Resized/labels.csv"
 
             with open(labels_file, 'r') as csvfile:
                 reader = csv.reader(csvfile)
