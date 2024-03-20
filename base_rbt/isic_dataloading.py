@@ -26,96 +26,104 @@ def get_supervised_isic_test_dls(bs,
                                  device='cpu', 
                                  pct_dataset=1.0, 
                                  num_workers=12):
-    resized_dir = "/content/drive/MyDrive/ISIC_2019_Test_Resized/"
-    labels_file = "/content/drive/MyDrive/ISIC_2019_Test_Resized/labels.csv"
+    max_retries = 3
+    retry_delay = 1
 
-    # with open(labels_file, 'r') as csvfile:
-    #     reader = csv.reader(csvfile)
-    #     next(reader)  # Skip the header row
-    #     labels = {row[0]: row[1] for row in reader}
+    for attempt in range(max_retries):
+        try:
+            resized_dir = "/content/drive/MyDrive/ISIC_2019_Test_Resized/"
+            labels_file = "/content/drive/MyDrive/ISIC_2019_Test_Resized/labels.csv"
 
-    # resized_fnames = [fname for fname in os.listdir(resized_dir) if fname.endswith('.jpg')]
+            with open(labels_file, 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                next(reader)  # Skip the header row
+                labels = {row[0]: row[1] for row in reader}
 
-    # subset_size = int(len(resized_fnames) * pct_dataset)
-    # _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
-    # _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
+            resized_fnames = list(labels.keys())
 
-    resized_dir = "/content/drive/MyDrive/ISIC_2019_Test_Resized/"
-    labels_file = "/content/drive/MyDrive/ISIC_2019_Test_Resized/labels.csv"
+            subset_size = int(len(resized_fnames) * pct_dataset)
+            _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
+            _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
 
-    with open(labels_file, 'r') as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # Skip the header row
-        labels = {row[0]: row[1] for row in reader}
+            # Test the first and ninth elements (fill in the test_eq based on your inspection)
 
-    resized_fnames = list(labels.keys())
+            test_eq((_resized_fnames[0], _labels[0]), ('/content/drive/MyDrive/ISIC_2019_Test_Resized/ISIC_0069373.jpg', 'MEL'))
+            test_eq((_resized_fnames[8], _labels[8]), ('/content/drive/MyDrive/ISIC_2019_Test_Resized/ISIC_0069383.jpg', 'NV'))
 
-    subset_size = int(len(resized_fnames) * pct_dataset)
-    _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
-    _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
+            counter = Counter(_labels)
+            if pct_dataset == 1.0:
+                test_eq(Counter({'NV': 10601, 'MEL': 3339, 'BCC': 2549, 'BKL': 1663, 'AK': 498, 'SCC': 414, 'VASC': 186, 'DF': 173}), counter)
 
-    # Test the first and ninth elements (fill in the test_eq based on your inspection)
+            dls = ImageDataLoaders.from_path_func(
+                resized_dir,
+                _resized_fnames,
+                lambda x: labels[os.path.basename(x)],
+                bs=bs,
+                valid_pct=0,
+                device=device,
+                num_workers=num_workers * (device == 'cuda'),
+                drop_last=False,
+            )
+            if pct_dataset == 1.0:
+                test_eq(len(dls.train_ds), 19423)
 
-    test_eq((_resized_fnames[0], _labels[0]), ('/content/drive/MyDrive/ISIC_2019_Test_Resized/ISIC_0069373.jpg', 'MEL'))
-    test_eq((_resized_fnames[8], _labels[8]), ('/content/drive/MyDrive/ISIC_2019_Test_Resized/ISIC_0069383.jpg', 'NV'))
-
-    counter = Counter(_labels)
-    if pct_dataset == 1.0:
-        test_eq(Counter({'NV': 10601, 'MEL': 3339, 'BCC': 2549, 'BKL': 1663, 'AK': 498, 'SCC': 414, 'VASC': 186, 'DF': 173}), counter)
-
-    dls = ImageDataLoaders.from_path_func(
-        resized_dir,
-        _resized_fnames,
-        lambda x: labels[os.path.basename(x)],
-        bs=bs,
-        valid_pct=0,
-        device=device,
-        num_workers=num_workers * (device == 'cuda'),
-        drop_last=False,
-                                            )
-    if pct_dataset == 1.0:
-        test_eq(len(dls.train_ds), 19423)
-
-    return dls
+            return dls
+        except IOError as e:
+            print(f"Attempt {attempt + 1}/{max_retries} failed with IOError: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise
 
 def get_supervised_isic_train_dls(bs, size, device, pct_dataset=1.0, num_workers=12):
-    resized_dir = "/content/drive/MyDrive/ISIC_2019_Training_Resized/"
-    labels_file = "/content/drive/MyDrive/ISIC_2019_Training_Resized/labels.csv"
-    
-    with open(labels_file, 'r') as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # Skip the header row
-        labels = {row[0]: row[1] for row in reader}
-    
-    resized_fnames = list(labels.keys())
-    
-    subset_size = int(len(resized_fnames) * pct_dataset)
-    _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
-    _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
-    
-    # Test the first and ninth elements
-    test_eq((_resized_fnames[0],_labels[0]),('/content/drive/MyDrive/ISIC_2019_Training_Resized/ISIC_0069487.jpg','BKL'))
+    max_retries = 3
+    retry_delay = 1
 
-    test_eq((_resized_fnames[8],_labels[8]),('/content/drive/MyDrive/ISIC_2019_Training_Resized/ISIC_0069630.jpg','AK'))
-    
-    counter = Counter(_labels)
-    if pct_dataset == 1.0:
-        test_eq(Counter({'NV': 500, 'MEL': 500, 'BCC': 500, 'BKL': 467, 'AK': 306, 'SCC': 171, 'VASC': 55, 'DF': 55}), counter)
-    elif pct_dataset == 0.5:
-        test_eq(Counter({'BKL': 350, 'AK': 243, 'MEL': 212, 'BCC': 182, 'SCC': 129, 'NV': 85, 'DF': 40, 'VASC': 36}), counter)
-    elif pct_dataset == 0.25:
-        test_eq(Counter({'BKL': 244, 'AK': 166, 'SCC': 89, 'MEL': 48, 'BCC': 37, 'DF': 28, 'VASC': 26}), counter)
-        
-    
-    dls = ImageDataLoaders.from_path_func(
-        resized_dir,
-        _resized_fnames,
-        lambda x: labels[os.path.basename(x)],
-        bs=bs,
-        valid_pct=0,
-        device=device,
-        num_workers=num_workers * (device == 'cuda'),
-        drop_last=False
-    )
+    for attempt in range(max_retries):
+        try:
+            resized_dir = "/content/drive/MyDrive/ISIC_2019_Training_Resized/"
+            labels_file = "/content/drive/MyDrive/ISIC_2019_Training_Resized/labels.csv"
+            
+            with open(labels_file, 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                next(reader)  # Skip the header row
+                labels = {row[0]: row[1] for row in reader}
+            
+            resized_fnames = list(labels.keys())
+            
+            subset_size = int(len(resized_fnames) * pct_dataset)
+            _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
+            _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
+            
+            # Test the first and ninth elements
+            test_eq((_resized_fnames[0],_labels[0]),('/content/drive/MyDrive/ISIC_2019_Training_Resized/ISIC_0069487.jpg','BKL'))
 
-    return dls
+            test_eq((_resized_fnames[8],_labels[8]),('/content/drive/MyDrive/ISIC_2019_Training_Resized/ISIC_0069630.jpg','AK'))
+            
+            counter = Counter(_labels)
+            if pct_dataset == 1.0:
+                test_eq(Counter({'NV': 500, 'MEL': 500, 'BCC': 500, 'BKL': 467, 'AK': 306, 'SCC': 171, 'VASC': 55, 'DF': 55}), counter)
+            elif pct_dataset == 0.5:
+                test_eq(Counter({'BKL': 350, 'AK': 243, 'MEL': 212, 'BCC': 182, 'SCC': 129, 'NV': 85, 'DF': 40, 'VASC': 36}), counter)
+            elif pct_dataset == 0.25:
+                test_eq(Counter({'BKL': 244, 'AK': 166, 'SCC': 89, 'MEL': 48, 'BCC': 37, 'DF': 28, 'VASC': 26}), counter)
+                
+            
+            dls = ImageDataLoaders.from_path_func(
+                resized_dir,
+                _resized_fnames,
+                lambda x: labels[os.path.basename(x)],
+                bs=bs,
+                valid_pct=0,
+                device=device,
+                num_workers=num_workers * (device == 'cuda'),
+                drop_last=False
+            )
+
+            return dls
+        except IOError as e:
+            print(f"Attempt {attempt + 1}/{max_retries} failed with IOError: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise
