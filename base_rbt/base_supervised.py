@@ -4,12 +4,15 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'save_metrics', 'main_sup_train', 'check_run_exists', 'main_sup_experiment', 'main_fine_tune_isic']
+           'save_metrics', 'main_sup_train', 'check_run_exists', 'main_sup_experiment', 'warm_up_run',
+           'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
 import self_supervised
 import torch
+import time
+import torch.autograd.profiler as profiler
 from fastai.vision.all import *
 from self_supervised.augmentations import *
 from self_supervised.layers import *
@@ -410,6 +413,7 @@ def save_metrics(model, #trained model
 def main_sup_train(config,
         num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
         train=True, #if False, load model and compute and save metrics only
+        test=True,
         experiment_dir=None, #where to save checkpoints
         ):
     
@@ -473,14 +477,25 @@ def main_sup_train(config,
                                 num_it=config.num_it,
                                 num_run=num_run,
                                 experiment_dir=experiment_dir,
-                                )
+                                                )
 
-
-        learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
+        start_time = time.time()
+        with profiler.profile(record_shapes=True) as prof:
+            learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
+        end_time = time.time()
+        print(prof.key_averages().table(sort_by="self_cpu_time_total"))
+        print(f"Training time: {end_time - start_time:.2f} seconds")
+        
         model = learn.model
     
     #compute metrics and save
-    metrics = save_metrics(model, aug_pipelines_supervised, experiment_dir, num_run, dls_train, dls_test)      
+    if test:
+        start_time = time.time()
+        metrics = save_metrics(model, aug_pipelines_supervised, experiment_dir, num_run, dls_train, dls_test)
+        end_time = time.time()
+        print(f"Metrics computation time: {end_time - start_time:.2f} seconds")
+    else:
+        metrics=None
     
     return learn,metrics
 
@@ -543,6 +558,7 @@ def main_sup_experiment(config,
                 _,metrics = main_sup_train(config=config,
                         num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
                         train=False,
+                        test=True,
                         experiment_dir=experiment_dir,
                                         )
             
@@ -569,9 +585,31 @@ def main_sup_experiment(config,
 
 
 # %% ../nbs/base_supervised.ipynb 36
+def warm_up_run(config):
+
+    config.epochs=1
+    config.pct_dataset_train=0.1
+    config.train_type='standard'
+    config.weight_type='random'
+    config.num_it=10
+
+    main_sup_train(config,
+        num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+        train=True, #if False, load model and compute and save metrics only
+        test=False,
+        experiment_dir=None, #where to save checkpoints
+                )
+    
+    
+
+
+
 def main_fine_tune_isic(config,base_dir):
     "Just call `main_sup_experiment` for each different `pct_dataset_train` value and for given config"
 
+    print('running warm_up_run')
+    warm_up_run(config)
+    print('warm_up_run complete')
     print('base config is:\n')
     pretty_print_ns(config)
     print('\n')

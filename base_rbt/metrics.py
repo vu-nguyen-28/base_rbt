@@ -451,8 +451,8 @@ def Pr_Dict(ytest,probs,int_to_classes=None):
 @torch.no_grad()
 def predict_whole_model(dls_test, model, aug_pipelines_test, numavg=3, criterion=CrossEntropyLossFlat(), deterministic=False):
     """
-    Predicts the labels and probabilities for the entire test set using the specified model and data augmentation
-    pipelines. Returns a dictionary containing the labels, probabilities, predicted labels, and accuracy.
+    Predicts the labels and probabilities for the entire test set using the specified model and data augmentation pipelines.
+    Returns a dictionary containing the labels, probabilities, predicted labels, and accuracy.
 
     Args:
         dls_test: The test dataloader.
@@ -470,9 +470,10 @@ def predict_whole_model(dls_test, model, aug_pipelines_test, numavg=3, criterion
     y = torch.zeros(total_len, dtype=torch.long)
     probs = torch.zeros(total_len, model.head.out_features)
     ypred = torch.zeros(total_len, dtype=torch.long)
-
     start_idx = 0
-    for xval, yval in dls_test.train:
+
+    progress_bar = tqdm(dls_test.train, desc="Predicting", unit="batch")
+    for xval, yval in progress_bar:
         end_idx = start_idx + len(xval)
         _probs, _ypred, acc = predict_model(xval, yval, model, aug_pipelines_test, numavg, criterion, deterministic)
         y[start_idx:end_idx] = yval
@@ -485,7 +486,7 @@ def predict_whole_model(dls_test, model, aug_pipelines_test, numavg=3, criterion
 
     # Return the predictions and labels in a dictionary
     #return {'y': y, 'probs': probs, 'ypred': ypred, 'acc': acc}
-    return y,probs,ypred,acc
+    return y, probs, ypred, acc
 
 def get_dls_metrics(dls,model,aug_pipelines_test,int_to_classes): #note that we can't call dls.vocab as it might be smaller on the test set
     "get metrics from model and dataloader"
