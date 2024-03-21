@@ -157,7 +157,9 @@ def get_supervised_dls(dataset,
                       pct_dataset_train,
                       pct_dataset_test,
                       bs,
-                      bs_test,size,
+                      dataset_dir,
+                      bs_test,
+                      size,
                       device):
     "Get train and test dataloaders for supervised learning"
 
@@ -185,6 +187,7 @@ def get_supervised_dls(dataset,
     # Proceed to call the function with arguments from the config
     try:
         dls_train = train_data_loader_func(bs=bs,
+                                           dataset_dir=dataset_dir,
                                            size=size,
                                            pct_dataset=pct_dataset_train,
                                            device=device

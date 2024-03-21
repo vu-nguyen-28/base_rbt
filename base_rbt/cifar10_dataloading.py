@@ -23,7 +23,7 @@ def get_bt_cifar10_train_dls(bs, size, device, pct_dataset=1.0, num_workers=12):
         test_eq(len(dls.train), 50000)
     return dls
 
-def get_supervised_cifar10_train_dls(bs, size, device, pct_dataset=1.0, num_workers=12):
+def get_supervised_cifar10_train_dls(bs, size, device,dataset_dir=None, pct_dataset=1.0, num_workers=12):
     path,fnames_train, labels_train = load_cifar10_train_data(pct_dataset)
     test_eq(len(labels_train), len(fnames_train))
     dls = ImageDataLoaders.from_lists(path, fnames_train, labels_train, bs=bs, item_tfms=[Resize(size=size)],
@@ -32,7 +32,7 @@ def get_supervised_cifar10_train_dls(bs, size, device, pct_dataset=1.0, num_work
         test_eq(len(dls.train_ds), 50000)
     return dls
 
-def get_supervised_cifar10_test_dls(bs, size, device, pct_dataset=1.0, num_workers=12):
+def get_supervised_cifar10_test_dls(bs, size, device,dataset_dir=None, pct_dataset=1.0, num_workers=12):
     path,fnames_test, labels_test = load_cifar10_test_data(pct_dataset)
     test_eq(len(labels_test), len(fnames_test))
     dls = ImageDataLoaders.from_lists(path, fnames_test, labels_test, bs=bs, item_tfms=[Resize(size=size)],
