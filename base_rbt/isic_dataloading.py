@@ -92,7 +92,6 @@ def get_supervised_isic_test_dls(bs,
 
             subset_size = int(len(resized_fnames) * pct_dataset)
             _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
-            _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
 
             dls = ImageDataLoaders.from_path_func(
                 resized_dir,
@@ -136,7 +135,6 @@ def get_supervised_isic_train_dls(bs,
 
             subset_size = int(len(resized_fnames) * pct_dataset)
             _resized_fnames = [os.path.join(resized_dir, fname) for fname in resized_fnames[:subset_size]]
-            _labels = [labels[os.path.basename(fname)] for fname in _resized_fnames]
 
             dls = ImageDataLoaders.from_path_func(
                 resized_dir,

@@ -211,6 +211,7 @@ def get_supervised_dls(dataset,
     try:
         dls_test = test_data_loader_func(bs=bs_test,
                                          size=size,
+                                         dataset_dir=dataset_dir,
                                          pct_dataset=pct_dataset_test,
                                          device=device
                                         )
