@@ -4,8 +4,7 @@
 __all__ = ['supervised_aug_func_dict', 'get_linear_batch_augs', 'LM', 'LinearBt', 'show_linear_batch', 'get_supervised_dls',
            'get_supervised_cifar10_augmentations', 'get_supervised_isic_augmentations', 'get_supervised_aug_pipelines',
            'encoder_head_splitter', 'SaveSupLearnerModel', 'SupervisedLearning', 'get_encoder', 'load_sup_model',
-           'save_metrics', 'main_sup_train', 'check_run_exists', 'main_sup_experiment', 'warm_up_run',
-           'main_fine_tune_isic']
+           'save_metrics', 'main_sup_train', 'check_run_exists', 'main_sup_experiment', 'main_fine_tune_isic']
 
 # %% ../nbs/base_supervised.ipynb 3
 import importlib
@@ -415,12 +414,13 @@ def save_metrics(model, #trained model
 
 # %% ../nbs/base_supervised.ipynb 27
 def main_sup_train(config,
+        dataset_dir=None,
         num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
         train=True, #if False, load model and compute and save metrics only
         test=True,
         experiment_dir=None, #where to save checkpoints
         ):
-    
+
     """Basically map from config to training a supervised model. Optionally save checkpoints of learner.
         Also compute metrics on test set and save. If train is `False` load model according to num_run (means
         it already exists) and just compute metrics.
@@ -440,11 +440,12 @@ def main_sup_train(config,
     device = default_device()
 
     dls_dict = get_supervised_dls(dataset=config.dataset,
+                                  dataset_dir=dataset_dir,
                                   pct_dataset_train=config.pct_dataset_train,
                                   pct_dataset_test=config.pct_dataset_test,
-                                  bs=config.bs, 
-                                  bs_test=config.bs_test, 
-                                  size=config.size, 
+                                  bs=config.bs,
+                                  bs_test=config.bs_test,
+                                  size=config.size,
                                   device=device)
 
 
@@ -459,14 +460,14 @@ def main_sup_train(config,
 
     numout = len(dls_train.vocab)
 
-   
+
     if not train: #just load model
         print(f"train is {train}. Loading model from {experiment_dir} to compute metrics.")
         learn=None
         path = os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
         model=load_sup_model(config,numout,path) #load state_dict
         model.to(device)
-   
+
 
     else: #train model
         encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
@@ -489,9 +490,9 @@ def main_sup_train(config,
         end_time = time.time()
         print(prof.key_averages().table(sort_by="self_cpu_time_total"))
         print(f"Training time: {end_time - start_time:.2f} seconds")
-        
+
         model = learn.model
-    
+
     #compute metrics and save
     if test:
         start_time = time.time()
@@ -500,13 +501,10 @@ def main_sup_train(config,
         print(f"Metrics computation time: {end_time - start_time:.2f} seconds")
     else:
         metrics=None
-    
+
     return learn,metrics
 
-    
-
-
-# %% ../nbs/base_supervised.ipynb 31
+# %% ../nbs/base_supervised.ipynb 30
 def check_run_exists(experiment_dir, num_run):
     # Check if the file for the given num_run exists
     path=os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
@@ -518,9 +516,10 @@ def check_run_exists(experiment_dir, num_run):
 #     return os.path.exists(path)
 
 
-# %% ../nbs/base_supervised.ipynb 32
+# %% ../nbs/base_supervised.ipynb 31
 def main_sup_experiment(config,
                         base_dir,
+                        dataset_dir,
                        ):
         """Run a supervised learning experiment with the given configuration and save the results to the experiment directory. Return the experiment directory and experiment hash.
         """
@@ -537,37 +536,39 @@ def main_sup_experiment(config,
                 print(f"num_run={num_run} doesn't exist. Training now.")
                 main_sup_train(
                     config=config,
+                    dataset_dir=dataset_dir,
                     num_run=num_run,
                     train=True,
                     experiment_dir=experiment_dir,
                               )
-        
+
             num_run += 1
-            
+
         #Possibly we haven't computed metrics for all models yet, e.g. if the session crashed.
         #We can just compute metrics for all models now, unless it's already been done
-    
+
         #We need to have completed all runs to get this metric
         all_metrics={}
         for num_run in range(1,config.num_runs+1):
 
-            try: 
+            try:
                 metrics = load_dict_from_gdrive(experiment_dir, f'metrics_num_run_{num_run}')
-            
+
             #Possible we have saved the model but not computed metrics yet, in case
             #e.g. colab exited in the middle of the calculation.
             except FileNotFoundError:
                 print(f"metrics_num_run_{num_run} not found. Computing now:")
-                
+
                 _,metrics = main_sup_train(config=config,
-                        num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
-                        train=False,
-                        test=True,
-                        experiment_dir=experiment_dir,
+                                           dataset_dir=dataset_dir,
+                                           num_run=num_run,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
+                                           train=False,
+                                           test=True,
+                                           experiment_dir=experiment_dir,
                                         )
-            
+
             all_metrics[num_run]=metrics
-    
+
         vocab = metrics['vocab']
         mean_results = Mean_Results(all_metrics,vocab)
 
@@ -588,37 +589,15 @@ def main_sup_experiment(config,
         return experiment_dir,experiment_hash,num_run #Return the experiment_dir so we can easily access the results of the experiment
 
 
-# %% ../nbs/base_supervised.ipynb 36
-def warm_up_run(config):
-
-    config.epochs=1
-    config.pct_dataset_train=0.1
-    config.train_type='standard'
-    config.weight_type='random'
-    config.num_it=10
-
-    main_sup_train(config,
-        num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
-        train=True, #if False, load model and compute and save metrics only
-        test=False,
-        experiment_dir=None, #where to save checkpoints
-                )
-    
-    
-
-
-
-def main_fine_tune_isic(config,base_dir):
+# %% ../nbs/base_supervised.ipynb 35
+def main_fine_tune_isic(config,base_dir,dataset_dir):
     "Just call `main_sup_experiment` for each different `pct_dataset_train` value and for given config"
 
-    print('running warm_up_run')
-    warm_up_run(config)
-    print('warm_up_run complete')
     print('base config is:\n')
     pretty_print_ns(config)
     print('\n')
     for pct_dataset_train in [1.0,0.5,0.25]:
-    
+
         config.pct_dataset_train = pct_dataset_train
 
         if config.pct_dataset_train==0.5:
@@ -627,7 +606,7 @@ def main_fine_tune_isic(config,base_dir):
         elif config.pct_dataset_train==0.25:
             config.freeze_epochs=4
             config.num_run=5
-        
+
         print('fine tuning with config:\n')
         pretty_print_ns(config)
-        main_sup_experiment(config,base_dir)
+        main_sup_experiment(config,base_dir,dataset_dir)

@@ -114,8 +114,8 @@ def get_supervised_isic_test_dls(bs,
 
 def get_supervised_isic_train_dls(bs, 
                                   dataset_dir,  # Added parameter for dataset directory
-                                  device,
                                   size=None, #preset by default to 256.
+                                  device='cpu',
                                   pct_dataset=1.0, 
                                   num_workers=12):
     max_retries = 3
