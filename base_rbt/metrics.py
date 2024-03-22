@@ -18,6 +18,7 @@ from sklearn.metrics import roc_auc_score,average_precision_score,precision_reca
 from numpy import interp
 import seaborn as sns
 import pandas as pd
+from tqdm.auto import tqdm
 
 # %% ../nbs/metrics.ipynb 5
 @torch.no_grad()
@@ -491,6 +492,7 @@ def predict_whole_model(dls_test, model, aug_pipelines_test, numavg=3, criterion
 def get_dls_metrics(dls,model,aug_pipelines_test,int_to_classes): #note that we can't call dls.vocab as it might be smaller on the test set
     "get metrics from model and dataloader"
 
+    print('running `predict_whole_model`')
     ytest,probs,preds,Acc = predict_whole_model(dls,model,aug_pipelines_test,numavg=3)
     metrics = classification_report_wrapper(preds, ytest,int_to_classes, print_report=True)
     

@@ -412,7 +412,7 @@ def save_metrics(model, #trained model
 
     return metrics
 
-# %% ../nbs/base_supervised.ipynb 27
+# %% ../nbs/base_supervised.ipynb 29
 def main_sup_train(config,
         dataset_dir=None,
         num_run=None,#run we are up to - tell us what name to give the saved checkpoint, if applicable.
@@ -484,21 +484,14 @@ def main_sup_train(config,
                                 experiment_dir=experiment_dir,
                                                 )
 
-        start_time = time.time()
-        with profiler.profile(record_shapes=True) as prof:
-            learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
-        end_time = time.time()
-        print(prof.key_averages().table(sort_by="self_cpu_time_total"))
-        print(f"Training time: {end_time - start_time:.2f} seconds")
+        learn = supervised_trainer.train(learn_type=config.learn_type,freeze_epochs=config.freeze_epochs,epochs=config.epochs)
 
         model = learn.model
 
     #compute metrics and save
     if test:
-        start_time = time.time()
+        print('computing metrics')
         metrics = save_metrics(model, aug_pipelines_supervised, experiment_dir, num_run, dls_train, dls_test)
-        end_time = time.time()
-        print(f"Metrics computation time: {end_time - start_time:.2f} seconds")
     else:
         metrics=None
 
