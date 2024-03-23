@@ -201,7 +201,7 @@ IMAGENET_Augs = dict(flip_p1=0.5,flip_p2=0.5,jitter_p1=0.8,jitter_p2=0.8,bw_p1=0
                 rotate_p=0.5,blur_r=(0.1,2),blur_s=13,sol_t=0.1,sol_a=0.1,noise_std=0.1
                 )
 
-DERMNET_Augs = IMAGENET_Augs 
+DERMNET_Augs = IMAGENET_Augs.copy()
 DERMNET_Augs['min_dropout_size']=(25, 100)
 DERMNET_Augs['max_dropout_size']=(50,150)
 DERMNET_Augs['cut_p']=0.5
@@ -840,7 +840,7 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 29
+# %% ../nbs/base_model.ipynb 30
 def get_bt_experiment_state(config,base_dir):
     """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
        Basically this tells us how to continue learning (e.g. we have run two sessions for 
@@ -871,7 +871,7 @@ def get_bt_experiment_state(config,base_dir):
 
     return load_learner_path, learn_type, start_epoch, interrupt_epoch
 
-# %% ../nbs/base_model.ipynb 30
+# %% ../nbs/base_model.ipynb 31
 def main_bt_experiment(config,
                       base_dir,
                       ):

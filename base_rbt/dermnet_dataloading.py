@@ -22,8 +22,8 @@ def get_bt_dermnet_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
 
     item_tfms = [Resize(size)]
     
-    base_train_dir = "/content/drive/MyDrive/DermNetDataset/train"
-    base_test_dir = "/content/drive/MyDrive/DermNetDataset/test"
+    base_train_dir = "/content/DermNetDataset/train"
+    base_test_dir = "/content/DermNetDataset/test"
     fnames_train = get_image_files(base_train_dir)
     fnames_test = get_image_files(base_test_dir)
     fnames = fnames_train + fnames_test #we are doing SSL so we can use all the data
