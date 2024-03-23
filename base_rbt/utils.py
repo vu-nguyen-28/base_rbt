@@ -187,13 +187,9 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
         elif weight_type == 'imgnet_sup_pretrained':
             _model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 
-        elif weight_type == 'dermnet_bt_pretrained':
+        elif weight_type in ['dermnet_bt_pretrained','imgnet_bt_dermnet_bt_pretrained','random']:
             _model = resnet50() 
-
-        elif weight_type == 'random':
-            _model = resnet50()
         
-
     elif arch == 'resnet34':
 
         if weight_type == 'imgnet_sup_pretrained':
