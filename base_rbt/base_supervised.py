@@ -371,7 +371,7 @@ def get_encoder(arch,weight_type,load_pretrained_path=None):
         return encoder
 
     else:
-
+        print(f'loading state_dict from {load_pretrained_path}')
         encoder.load_state_dict(torch.load(load_pretrained_path))
         
         return encoder                          
@@ -467,7 +467,6 @@ def main_sup_train(config,
         path = os.path.join(experiment_dir, f"trained_model_num_run_{num_run}.pth")
         model=load_sup_model(config,numout,path) #load state_dict
         model.to(device)
-
 
     else: #train model
         encoder = get_encoder(arch=config.arch,weight_type=config.weight_type,load_pretrained_path=config.load_pretrained_path)
