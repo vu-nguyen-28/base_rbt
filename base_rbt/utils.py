@@ -167,7 +167,7 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
 
     Args:
         arch (Literal['smallres','resnet18', 'resnet34', 'resnet50']): The architecture of the ResNet.
-        weight_type (Literal['random', 'imgnet_bt_pretrained', 'imgnet_sup_pretrained']): Specifies the weight initialization strategy. Defaults to 'random'.
+        weight_type (Literal['random', 'imgnet_bt_pretrained', 'imgnet_bt_dermnet_bt_pretrained','imgnet_sup_pretrained','imgnet_bt_ufes_bt_pretrained']): Specifies the weight initialization strategy. Defaults to 'random'.
 
     Returns:
         Encoder: An encoder configured for 3 input channels and specified architecture.
@@ -187,7 +187,7 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
         elif weight_type == 'imgnet_sup_pretrained':
             _model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 
-        elif weight_type in ['dermnet_bt_pretrained','imgnet_bt_dermnet_bt_pretrained','random']:
+        elif weight_type in ['dermnet_bt_pretrained','imgnet_bt_dermnet_bt_pretrained','imgnet_bt_ufes_bt_pretrained','random']:
             _model = resnet50() 
         
     elif arch == 'resnet34':
