@@ -17,15 +17,14 @@ def label_func(x):
 
 def get_bt_ufes_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
     
-    #NOTE: assume unzip like: !
-    #mkdir -p "/content/PAD_UFES_20"
-    #!unzip -q -o "/content/drive/My Drive/PAD_UFES_20.zip" -d "/content/PAD_UFES_20"
+    #NOTE: assume unzip like:
+    #!mkdir -p "/content/PAD_UFES_20_resized"
+    #!unzip -q -o "/content/drive/My Drive/PAD_UFES_20_resized.zip" -d "/content/PAD_UFES_20_resized"
 
-    item_tfms = [Resize(size)]
 
     fnames=[]
     for i in [1,2,3]:
-        fnames+=get_image_files(f"/content/PAD_UFES_20/imgs_part_{i}/imgs_part_{i}")
+        fnames+=get_image_files(f"/content/PAD_UFES_20_resized/imgs_part_{i}/imgs_part_{i}")
     
     n = int(len(fnames)*pct_dataset)
 
@@ -36,7 +35,6 @@ def get_bt_ufes_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
         fnames=fnames[0:n],
         label_func=label_func,
         bs=bs,
-        item_tfms=item_tfms,
         valid_pct=0,
         device=device,
         num_workers=num_workers*(device=='cuda')
