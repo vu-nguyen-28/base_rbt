@@ -15,4 +15,4 @@ pct_dataset_train: 1.0 #set to 0.5,0.25 as well
 pct_dataset_test: 1.0  #generally this is 1.0 outside of testing code
 epochs: 40  # epochs to train BT variant
 num_runs: 35 #Number of runs to perform
-load_pretrained_path: /content/drive/MyDrive/Experiments/barlow_twins/SSL/ufes/resnet50/04abeec1/trained_encoder_epoch_99.pth
+load_pretrained_path: /content/drive/MyDrive/Experiments/barlow_twins/SSL/ufes/resnet50/88af9588/trained_encoder_epoch_999.pth
