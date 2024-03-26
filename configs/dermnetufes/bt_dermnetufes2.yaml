@@ -1,0 +1,20 @@
+dataset: dermnetufes
+arch: resnet50
+train_type: SSL #which train type we will perform: SSL or supervised
+weight_type: imgnet_bt_pretrained #random, imgnet_bt_pretrained,imgnet_sup_pretrained etc
+size: 256 #size of the image
+n_in: 3
+bs: 128 #batch size for dls
+cache_size: 8 #batch size for cache dataloader -> effective bs of bs*cache_size
+ps: 8192  # size of projector dimension
+hs: 8192  # size of hidden dimension
+bt_augs: bt_imagenet_aug_pipelines # other options: bt_`dataset_name`_aug_pipelines
+model_type: barlow_twins  #`barlow_twins` or `indiv_sparse_barlow_twins`, `group_sparse_barlow_twins`, `proj_group_sparse_barlow_twins`
+lmb: 0.0001220703125
+sparsity_level: none
+wd: 0.0000015 #1.5*1e-6 which is the deault in the paper. We may have to ablate as a control to our idea though
+freeze_epochs: 1
+num_it: 100
+pct_dataset: 1.0
+epochs: 100  #number of epochs to train BT variant
+save_interval: 100 #checkpoints every 100 epochs for reloading - if applicable!

@@ -48,7 +48,6 @@ def get_bt_dermnet_train_dls(bs,size,device,pct_dataset=1.0,num_workers=12):
                                           )
 
     
-    
     if pct_dataset == 1.0:
         test_eq(len(dls.train_ds),19559)
 
