@@ -5,10 +5,9 @@ weight_type: imgnet_bt_pretrained #random, imgnet_bt_pretrained,imgnet_sup_pretr
 size: 256 #size of the image
 n_in: 3
 bs: 128 #batch size for dls
-cache_size: 8 #batch size for cache dataloader -> effective bs of bs*cache_size
 ps: 8192  # size of projector dimension
 hs: 8192  # size of hidden dimension
-bt_augs: bt_imagenet_aug_pipelines # other options: bt_`dataset_name`_aug_pipelines
+bt_augs: bt_dermnet_aug_pipelines # other options: bt_`dataset_name`_aug_pipelines
 model_type: barlow_twins  #`barlow_twins` or `indiv_sparse_barlow_twins`, `group_sparse_barlow_twins`, `proj_group_sparse_barlow_twins`
 lmb: 0.0001220703125
 sparsity_level: none
