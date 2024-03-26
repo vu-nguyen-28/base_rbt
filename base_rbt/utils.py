@@ -175,19 +175,17 @@ def resnet_arch_to_encoder(arch: Literal['smallres','resnet18', 'resnet34', 'res
     
     n_in=3
 
-
     if weight_type == 'imgnet_bt_pretrained': test_eq(arch,'resnet50')
-
     
     if arch == 'resnet50':
 
-        if weight_type == 'imgnet_bt_pretrained':
+        if  weight_type ==  'imgnet_bt_pretrained':
             _model = torch.hub.load('facebookresearch/barlowtwins:main', 'resnet50')
 
         elif weight_type == 'imgnet_sup_pretrained':
             _model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 
-        elif weight_type in ['dermnet_bt_pretrained','imgnet_bt_dermnet_bt_pretrained','imgnet_bt_ufes_bt_pretrained','random']:
+        else: #means we are loading state_dict from elsewhere
             _model = resnet50() 
         
     elif arch == 'resnet34':

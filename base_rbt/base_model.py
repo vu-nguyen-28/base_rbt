@@ -298,120 +298,67 @@ def get_ssl_dls(dataset,#cifar10, dermnet, etc
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
 #sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
-# class BarlowTwinsModel(Module):
-#     """An encoder followed by a projector
-#     """
-#     def __init__(self,encoder,projector):
-#         self.encoder = encoder
-#         self.projector = projector
-        
-#     def forward(self,x): 
-        
-#         return self.projector(self.encoder(x))
-
 class BarlowTwinsModel(Module):
-    """An encoder followed by a projector"""
-    def __init__(self, encoder, projector, cache_size):
+    """An encoder followed by a projector
+    """
+    def __init__(self,encoder,projector):
         self.encoder = encoder
         self.projector = projector
-        self.cache_size = cache_size
-        self.cached_outputs = []
         
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.projector(x)
-        self.cached_outputs.append(x)
+    def forward(self,x): 
         
-        if len(self.cached_outputs) == self.cache_size:
-            concatenated_outputs = torch.cat(self.cached_outputs, dim=0)
-            self.cached_outputs = []
-            return concatenated_outputs
-        else:
-            return None
+        return self.projector(self.encoder(x))
 
-def create_barlow_twins_model(encoder,cache_size, hidden_size=256, projection_size=128, bn=True, nlayers=3):
+def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
     "Create Barlow Twins model"
     n_in  = in_channels(encoder)
     with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
     projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
     apply_init(projector)
-    return BarlowTwinsModel(encoder=encoder, projector=projector,cache_size=cache_size)
-
-# class BarlowTwins(Callback):
-#     order,run_valid = 9,True
-#     def __init__(self, aug_pipelines,n_in,lmb,sparsity_level, 
-#                 model_type='barlow_twins',print_augs=False
-#                  ):
-#         assert_aug_pipelines(aug_pipelines)
-#         self.aug1, self.aug2 = aug_pipelines
-#         if print_augs: print(self.aug1), print(self.aug2)
-#         store_attr('lmb')
-#         store_attr('sparsity_level')
-#         self.n_in=n_in
-#         self.model_type = model_type
-#         self.index=-1 #Gets updated after each batch
-#         self.acc_dict = {}
-        
-#     def before_fit(self): 
-#         self.learn.loss_func = self.lf
-#         nf = self.learn.model.projector[-1].out_features
-#         self.I = torch.eye(nf).to(self.dls.device)
-
-
-#     def before_epoch(self):
-#         self.index=-1  
-  
-#     def before_batch(self):
-        
-#         #TODO: Make this nicer (possibly can load in data as TensorImage(BW) or something?)
-#         #This is a bit of a hack. Can make this more elegant later. But in new version of FastAI
-#         #seems we need to compute TensorImage(BW) here, and depends on whether color or not, i.e. n_in.
-#         if self.n_in == 1:
-
-#             xi,xj = self.aug1(TensorImageBW(self.x)), self.aug2(TensorImageBW(self.x))
-            
-#             #print(xi.shape)
-                                    
-#         elif self.n_in == 3:
-            
-#             xi,xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
-
-#         self.learn.xb = (torch.cat([xi, xj]),)
-
-#         self.index=self.index+1
+    return BarlowTwinsModel(encoder, projector)
 
 class BarlowTwins(Callback):
-    order, run_valid = 9, True
-    def __init__(self, aug_pipelines, n_in, lmb, sparsity_level, model_type='barlow_twins', print_augs=False):
+    order,run_valid = 9,True
+    def __init__(self, aug_pipelines,n_in,lmb,sparsity_level, 
+                model_type='barlow_twins',print_augs=False
+                 ):
         assert_aug_pipelines(aug_pipelines)
         self.aug1, self.aug2 = aug_pipelines
         if print_augs: print(self.aug1), print(self.aug2)
         store_attr('lmb')
         store_attr('sparsity_level')
-        self.n_in = n_in
+        self.n_in=n_in
         self.model_type = model_type
-        self.index = -1  # Gets updated after each batch
+        self.index=-1 #Gets updated after each batch
         self.acc_dict = {}
         
-    def before_fit(self):
+    def before_fit(self): 
         self.learn.loss_func = self.lf
         nf = self.learn.model.projector[-1].out_features
         self.I = torch.eye(nf).to(self.dls.device)
 
-    def before_batch(self):
-        if self.n_in == 1:
-            xi, xj = self.aug1(TensorImageBW(self.x)), self.aug2(TensorImageBW(self.x))
-        elif self.n_in == 3:
-            xi, xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
-        self.learn.xb = (torch.cat([xi, xj]),)
-        self.index += 1
 
-    def after_loss(self):
-        output = self.learn.model(self.learn.xb[0])
-        if output is not None:
-            self.learn.loss = self.lf(output, self.I)
-        else:
-            self.learn.loss = None
+    def before_epoch(self):
+        self.index=-1  
+  
+    def before_batch(self):
+        
+        #TODO: Make this nicer (possibly can load in data as TensorImage(BW) or something?)
+        #This is a bit of a hack. Can make this more elegant later. But in new version of FastAI
+        #seems we need to compute TensorImage(BW) here, and depends on whether color or not, i.e. n_in.
+        if self.n_in == 1:
+
+            xi,xj = self.aug1(TensorImageBW(self.x)), self.aug2(TensorImageBW(self.x))
+            
+            #print(xi.shape)
+                                    
+        elif self.n_in == 3:
+            
+            xi,xj = self.aug1(TensorImage(self.x)), self.aug2(TensorImage(self.x))
+
+        self.learn.xb = (torch.cat([xi, xj]),)
+
+        self.index=self.index+1
         
     @torch.no_grad()
     def show(self, n=1): 
@@ -423,6 +370,35 @@ class BarlowTwins(Callback):
         images = []
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
+
+# %% ../nbs/base_model.ipynb 11
+#We want access to both representation and projection
+
+#TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
+#sake of readability, might be easier to just modify the defintions elsewhere. Come back to this later...
+class BarlowTwinsModel(Module):
+    """An encoder followed by a projector
+    """
+    def __init__(self,encoder,projector):
+        self.encoder = encoder
+        self.projector = projector
+        
+    def forward(self,x): 
+        tem = self.encoder(x)
+        return tem,self.projector(tem)
+    
+    def __str__(self):
+        return 'forward returns tuple of (encoder(x),projector(encoder(x)))'
+
+def create_barlow_twins_model(encoder, hidden_size=256, projection_size=128, bn=True, nlayers=3):
+    "Create Barlow Twins model"
+    n_in  = in_channels(encoder)
+    with torch.no_grad(): representation = encoder(torch.randn((2,n_in,128,128)))
+    
+    projector = create_mlp_module(representation.size(1), hidden_size, projection_size, bn=bn, nlayers=nlayers) 
+    apply_init(projector)
+ 
+    return BarlowTwinsModel(encoder, projector)
 
 # %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
@@ -601,10 +577,6 @@ def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
-
-
-    if pred is None:
-        return None
 
     if self.model_type=='barlow_twins':
          pred_enc = pred[0]
@@ -829,7 +801,7 @@ def main_bt_train(config,
     # This involves selecting the architecture and setting model-specific hyperparameters.
     encoder = resnet_arch_to_encoder(arch=config.arch, weight_type=config.weight_type)
     
-    model = create_barlow_twins_model(encoder,cache_size=config.cache_size, hidden_size=config.hs, projection_size=config.ps)
+    model = create_barlow_twins_model(encoder, hidden_size=config.hs, projection_size=config.ps)
 
     # Prepare data loaders according to the dataset specified in the configuration
     dls = get_ssl_dls(dataset=config.dataset, bs=config.bs,size=config.size, device=device,pct_dataset=config.pct_dataset)
