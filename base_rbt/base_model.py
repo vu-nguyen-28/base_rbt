@@ -10,7 +10,19 @@ __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianB
            'SaveBarlowLearnerModel', 'load_barlow_model', 'BarlowTrainer', 'main_bt_train', 'get_bt_experiment_state',
            'main_bt_experiment']
 
-# %% ../nbs/base_model.ipynb 5
+# %% ../nbs/base_model.ipynb 3
+import importlib
+import sys
+import self_supervised
+import torch
+from fastai.vision.all import *
+from self_supervised.augmentations import *
+from self_supervised.layers import *
+import kornia.augmentation as korniatfm
+import torchvision.transforms as tvtfm
+from .utils import *
+
+# %% ../nbs/base_model.ipynb 6
 #My edited version of RandTransform
 class RandomGaussianBlur(RandTransform):
     "Randomly apply gaussian blur with probability `p` with a value of s"
@@ -162,7 +174,7 @@ def get_multi_aug_pipelines(size, **kwargs): return get_BT_batch_augs(size, **kw
 def get_barlow_twins_aug_pipelines(size,**kwargs): return get_multi_aug_pipelines(size=size,**kwargs)
 
 
-# %% ../nbs/base_model.ipynb 6
+# %% ../nbs/base_model.ipynb 7
 def get_bt_cifar10_aug_pipelines(size):
     aug_pipelines_1 = get_barlow_twins_aug_pipelines(size=size,
                                                     bw=True, rotate=True,noise=True, jitter=True, blur=True,solar=True,
@@ -241,7 +253,7 @@ def get_bt_aug_pipelines(bt_augs,size):
 
     
 
-# %% ../nbs/base_model.ipynb 7
+# %% ../nbs/base_model.ipynb 8
 def get_ssl_dls(dataset,#cifar10, dermnet, etc
             bs,
             size,
@@ -281,7 +293,7 @@ def get_ssl_dls(dataset,#cifar10, dermnet, etc
     return dls_train
 
 
-# %% ../nbs/base_model.ipynb 9
+# %% ../nbs/base_model.ipynb 10
 #Base functions / classes we need to train a BT / RBT model.
 
 #TODO: We can make these more abstract so can incrementally modify to build `bt/rbt` and also `new idea.` But for 
@@ -412,7 +424,7 @@ class BarlowTwins(Callback):
         for i in range(n): images += [x1[i],x2[i]]
         return show_batch(x1[0], None, images, max_n=len(images), nrows=n)
 
-# %% ../nbs/base_model.ipynb 13
+# %% ../nbs/base_model.ipynb 14
 def lf_bt(pred,I,lmb):
     bs,nf = pred.size(0)//2,pred.size(1)
     
@@ -426,7 +438,7 @@ def lf_bt(pred,I,lmb):
     loss = (cdiff*I + cdiff*(1-I)*lmb).sum() 
     return loss
 
-# %% ../nbs/base_model.ipynb 14
+# %% ../nbs/base_model.ipynb 15
 def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -459,7 +471,7 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
     
 
 
-# %% ../nbs/base_model.ipynb 15
+# %% ../nbs/base_model.ipynb 16
 def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -489,7 +501,7 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 16
+# %% ../nbs/base_model.ipynb 17
 def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -523,7 +535,7 @@ def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 18
 def lf_bt_fun(pred,I,lmb,sparsity_level,
                       ):
 
@@ -557,7 +569,7 @@ def lf_bt_fun(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 19
 def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
                            ):
 
@@ -585,7 +597,7 @@ def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 19
+# %% ../nbs/base_model.ipynb 20
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
@@ -617,11 +629,11 @@ def lf(self:BarlowTwins, pred,*yb):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 21
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 23
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -633,7 +645,7 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 23
+# %% ../nbs/base_model.ipynb 24
 class SaveBarlowLearnerCheckpoint(Callback):
     "Save such that can resume training "
     def __init__(self, experiment_dir,start_epoch=0, save_interval=250,with_opt=True):
@@ -668,7 +680,7 @@ class SaveBarlowLearnerModel(Callback):
         print(f"encoder state dict saved to {encoder_path}")
 
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 25
 def load_barlow_model(arch,ps,hs,path):
 
     encoder = resnet_arch_to_encoder(arch=arch, weight_type='random')
@@ -680,7 +692,7 @@ def load_barlow_model(arch,ps,hs,path):
 
     
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 26
 class BarlowTrainer:
     "Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training."
 
@@ -798,7 +810,7 @@ class BarlowTrainer:
         return self.learn
 
 
-# %% ../nbs/base_model.ipynb 26
+# %% ../nbs/base_model.ipynb 27
 def main_bt_train(config,
         start_epoch = 0,
         interrupt_epoch = 100,
@@ -855,7 +867,7 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 28
+# %% ../nbs/base_model.ipynb 29
 def get_bt_experiment_state(config,base_dir):
     """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
        Basically this tells us how to continue learning (e.g. we have run two sessions for 
@@ -886,7 +898,7 @@ def get_bt_experiment_state(config,base_dir):
 
     return load_learner_path, learn_type, start_epoch, interrupt_epoch
 
-# %% ../nbs/base_model.ipynb 29
+# %% ../nbs/base_model.ipynb 30
 def main_bt_experiment(config,
                       base_dir,
                       ):
