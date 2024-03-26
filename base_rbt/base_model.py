@@ -202,8 +202,8 @@ IMAGENET_Augs = dict(flip_p1=0.5,flip_p2=0.5,jitter_p1=0.8,jitter_p2=0.8,bw_p1=0
                 )
 
 DERMNET_Augs = IMAGENET_Augs.copy()
-DERMNET_Augs['min_dropout_size']=(25, 100)
-DERMNET_Augs['max_dropout_size']=(50,150)
+DERMNET_Augs['min_dropout_size']=(50, 185)
+DERMNET_Augs['max_dropout_size']=(100,190)
 DERMNET_Augs['cut_p']=0.5
 
 def helper_get_bt_augs(size,Augs=IMAGENET_Augs):
