@@ -447,7 +447,7 @@ def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
     
 
 
-# %% ../nbs/base_model.ipynb 17
+# %% ../nbs/base_model.ipynb 18
 def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -477,7 +477,7 @@ def lf_bt_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 18
+# %% ../nbs/base_model.ipynb 19
 def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -511,7 +511,7 @@ def lf_bt_group_norm_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 19
+# %% ../nbs/base_model.ipynb 20
 def lf_bt_fun(pred,I,lmb,sparsity_level,
                       ):
 
@@ -545,7 +545,7 @@ def lf_bt_fun(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 20
+# %% ../nbs/base_model.ipynb 21
 def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
                            ):
 
@@ -573,7 +573,7 @@ def lf_bt_proj_group_sparse(pred,I,lmb,sparsity_level,
     torch.cuda.empty_cache()
     return loss
 
-# %% ../nbs/base_model.ipynb 21
+# %% ../nbs/base_model.ipynb 22
 @patch
 def lf(self:BarlowTwins, pred,*yb):
     "Assumes model created according to type p3"
@@ -601,11 +601,11 @@ def lf(self:BarlowTwins, pred,*yb):
 
     else: raise(Exception)
 
-# %% ../nbs/base_model.ipynb 22
+# %% ../nbs/base_model.ipynb 23
 def my_splitter_bt(m):
     return L(sequential(*m.encoder),m.projector).map(params)
 
-# %% ../nbs/base_model.ipynb 24
+# %% ../nbs/base_model.ipynb 25
 def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     "Given a linear learner, show a batch"
         
@@ -617,7 +617,7 @@ def show_bt_batch(dls,n_in,aug,n=2,print_augs=True):
     learn('before_batch')
     axes = learn.barlow_twins.show(n=n)
 
-# %% ../nbs/base_model.ipynb 25
+# %% ../nbs/base_model.ipynb 26
 class SaveBarlowLearnerCheckpoint(Callback):
     "Save such that can resume training "
     def __init__(self, experiment_dir,start_epoch=0, save_interval=250,with_opt=True):
@@ -652,7 +652,7 @@ class SaveBarlowLearnerModel(Callback):
         print(f"encoder state dict saved to {encoder_path}")
 
 
-# %% ../nbs/base_model.ipynb 26
+# %% ../nbs/base_model.ipynb 27
 def load_barlow_model(arch,ps,hs,path):
 
     encoder = resnet_arch_to_encoder(arch=arch, weight_type='random')
@@ -664,7 +664,7 @@ def load_barlow_model(arch,ps,hs,path):
 
     
 
-# %% ../nbs/base_model.ipynb 27
+# %% ../nbs/base_model.ipynb 28
 class BarlowTrainer:
     "Setup a learner for training a BT model. Can do transfer learning, normal training, or resume training."
 
@@ -739,14 +739,14 @@ class BarlowTrainer:
 
         self.learn.freeze()
         test_grad_off(self.learn.encoder)
-        self.learn.fit(freeze_epochs)
+        #self.learn.fit(freeze_epochs)
+        self.learn.fit_one_cycle(freeze_epochs, 2e-3, pct_start=0.99) #lifted from fastai `fine_tune`
         self.learn.unfreeze()
         test_grad_on(self.learn.model)
-        lrs = self.learn.lr_find(num_it=self.num_it)
-        
+        lrs = self.learn.lr_find(num_it=self.num_it) #lets find a good maximum lr
         lr=lrs.valley
-        self.learn.fit_one_cycle(epochs, lr=slice(lr/10,lr),cbs=self._get_training_cbs(interrupt_epoch)
-                                )
+        discriminative_lrs = slice(lr/10,lr)
+        self.learn.fit_one_cycle(epochs, discriminative_lrs, pct_start=0.3, div=5.0, cbs=self._get_training_cbs(interrupt_epoch))
 
     def bt_learning(self,epochs:int,interrupt_epoch:int):
         """If the encoder is not pretrained, we can do normal training.
@@ -782,7 +782,7 @@ class BarlowTrainer:
         return self.learn
 
 
-# %% ../nbs/base_model.ipynb 28
+# %% ../nbs/base_model.ipynb 29
 def main_bt_train(config,
         start_epoch = 0,
         interrupt_epoch = 100,
@@ -839,7 +839,7 @@ def main_bt_train(config,
     return learn
 
 
-# %% ../nbs/base_model.ipynb 30
+# %% ../nbs/base_model.ipynb 31
 def get_bt_experiment_state(config,base_dir):
     """Get the load_learner_path, learn_type, start_epoch, interrupt_epoch for BT experiment.
        Basically this tells us how to continue learning (e.g. we have run two sessions for 
@@ -870,7 +870,7 @@ def get_bt_experiment_state(config,base_dir):
 
     return load_learner_path, learn_type, start_epoch, interrupt_epoch
 
-# %% ../nbs/base_model.ipynb 31
+# %% ../nbs/base_model.ipynb 32
 def main_bt_experiment(config,
                       base_dir,
                       ):
