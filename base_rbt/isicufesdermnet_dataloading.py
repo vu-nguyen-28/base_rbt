@@ -35,7 +35,7 @@ def get_bt_isicufesdermnet_train_dls(bs,
     fnames_test = get_image_files(base_test_dir)
     fnames_dermnet = fnames_train + fnames_test #we are doing SSL so we can use all the data
 
-    fnames = fnames_isic+fnames_ufes+fnames_dermnet
+    fnames = fnames_isic*2+fnames_ufes*2+fnames_dermnet
     n = int(len(fnames)*pct_dataset)
 
     dls = ImageDataLoaders.from_path_func(
