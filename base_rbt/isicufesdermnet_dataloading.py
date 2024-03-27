@@ -25,8 +25,6 @@ def get_bt_isicufesdermnet_train_dls(bs,
     combined_resized_dir = os.path.join(dataset_dir, "ISIC_2019_TrainingValid_Resized")
     fnames_isic = get_image_files(combined_resized_dir)
 
-
-
     fnames_ufes=[]
     for i in [1,2,3]:
         fnames_ufes+=get_image_files(f"/content/PAD_UFES_20_resized/imgs_part_{i}/imgs_part_{i}")

@@ -744,8 +744,8 @@ class BarlowTrainer:
         test_grad_on(self.learn.model)
         lrs = self.learn.lr_find(num_it=self.num_it)
         
-        
-        self.learn.fit_one_cycle(epochs, lrs.valley,cbs=self._get_training_cbs(interrupt_epoch)
+        lr=lrs.valley
+        self.learn.fit_one_cycle(epochs, lr=slice(lr/10,lr),cbs=self._get_training_cbs(interrupt_epoch)
                                 )
 
     def bt_learning(self,epochs:int,interrupt_epoch:int):
