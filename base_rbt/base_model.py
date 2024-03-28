@@ -420,7 +420,10 @@ def lf_bt_sparse_head(pred,I,lmb,projector,sparsity_level):
     bt_loss = lf_bt(pred,I,lmb)
     L21 = torch.linalg.norm(projector[-1].weight, ord=2, dim=0).sum()
 
-    print(f"bt_loss is {bt_loss}, L21 is {L21}, scaled L21 is {sparsity_level*L21}")
+    # print(f"bt_loss is {bt_loss}, L21 is {L21}, scaled L21 is {sparsity_level*L21}")
+    # print(bt_loss)
+    # print(L21)
+
     
     loss =  bt_loss + sparsity_level*L21 #barlow twins loss + L21 norm of last layer of projector
  
