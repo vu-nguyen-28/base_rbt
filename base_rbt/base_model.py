@@ -5,8 +5,8 @@ __all__ = ['IMAGENET_Augs', 'DERMNET_Augs', 'bt_aug_func_dict', 'RandomGaussianB
            'get_multi_aug_pipelines', 'get_barlow_twins_aug_pipelines', 'get_bt_cifar10_aug_pipelines',
            'helper_get_bt_augs', 'get_bt_imagenet_aug_pipelines', 'get_bt_dermnet_aug_pipelines',
            'get_bt_aug_pipelines', 'get_ssl_dls', 'BarlowTwinsModel', 'create_barlow_twins_model', 'BarlowTwins',
-           'lf_bt', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse', 'lf_bt_fun',
-           'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'SaveBarlowLearnerCheckpoint',
+           'lf_bt', 'lf_bt_sparse_head', 'lf_bt_indiv_sparse', 'lf_bt_group_sparse', 'lf_bt_group_norm_sparse',
+           'lf_bt_fun', 'lf_bt_proj_group_sparse', 'my_splitter_bt', 'show_bt_batch', 'SaveBarlowLearnerCheckpoint',
            'SaveBarlowLearnerModel', 'load_barlow_model', 'BarlowTrainer', 'main_bt_train', 'get_bt_experiment_state',
            'main_bt_experiment']
 
@@ -415,6 +415,18 @@ def lf_bt(pred,I,lmb):
     return loss
 
 # %% ../nbs/base_model.ipynb 16
+def lf_bt_sparse_head(pred,I,lmb,projector,sparsity_level):
+  
+    bt_loss = lf_bt(pred,I,lmb)
+    L21 = torch.linalg.norm(projector[-1].weight, ord=2, dim=0).sum()
+
+    print(f"bt_loss is {bt_loss}, L21 is {L21}, scaled L21 is {sparsity_level*L21}")
+    
+    loss =  bt_loss + sparsity_level*L21 #barlow twins loss + L21 norm of last layer of projector
+ 
+    return loss
+
+# %% ../nbs/base_model.ipynb 17
 def lf_bt_indiv_sparse(pred,I,lmb,sparsity_level,
                       ):
 
@@ -582,6 +594,13 @@ def lf(self:BarlowTwins, pred,*yb):
          pred_enc = pred[0]
          pred = pred[1]
          return lf_bt(pred, self.I,self.lmb)
+
+    elif self.model_type=='sparse_head_barlow_twins':
+        pred_enc = pred[0]
+        pred = pred[1]
+
+        return lf_bt_sparse_head(pred, self.I,lmb=self.lmb,projector=self.learn.model.projector,sparsity_level=self.sparsity_level)
+    
 
     elif self.model_type=='indiv_sparse_barlow_twins':
         return lf_bt_indiv_sparse(pred, self.I,lmb=self.lmb,sparsity_level=self.sparsity_level)
