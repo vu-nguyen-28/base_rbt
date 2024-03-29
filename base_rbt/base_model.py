@@ -767,7 +767,7 @@ class BarlowTrainer:
         test_grad_on(self.learn.model)
         lrs = self.learn.lr_find(num_it=self.num_it) #lets find a good maximum lr
         lr=lrs.valley
-        discriminative_lrs = slice(lr/10,lr)
+        discriminative_lrs = slice(lr/2,lr)
         self.learn.fit_one_cycle(epochs, discriminative_lrs, pct_start=0.3, div=5.0, cbs=self._get_training_cbs(interrupt_epoch))
 
     def bt_learning(self,epochs:int,interrupt_epoch:int):
