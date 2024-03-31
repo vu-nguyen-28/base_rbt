@@ -204,7 +204,7 @@ IMAGENET_Augs = dict(flip_p1=0.5,flip_p2=0.5,jitter_p1=0.8,jitter_p2=0.8,bw_p1=0
 DERMNET_Augs = IMAGENET_Augs.copy()
 DERMNET_Augs['min_dropout_size']=(50, 185)
 DERMNET_Augs['max_dropout_size']=(100,190)
-DERMNET_Augs['cut_p']=0.5
+DERMNET_Augs['cut_p']=0.33
 
 def helper_get_bt_augs(size,Augs=IMAGENET_Augs):
 
@@ -758,17 +758,13 @@ class BarlowTrainer:
         """If the encoder is already pretrained, we can do transfer learning.
             Freeze encoder, train projector for a few epochs, then unfreeze and train all. 
         """
-
         self.learn.freeze()
         test_grad_off(self.learn.encoder)
-        #self.learn.fit(freeze_epochs)
-        self.learn.fit_one_cycle(freeze_epochs, 2e-3, pct_start=0.99) #lifted from fastai `fine_tune`
+        self.learn.fit(freeze_epochs)
         self.learn.unfreeze()
         test_grad_on(self.learn.model)
         lrs = self.learn.lr_find(num_it=self.num_it) #lets find a good maximum lr
-        lr=lrs.valley
-        discriminative_lrs = slice(lr/2,lr)
-        self.learn.fit_one_cycle(epochs, discriminative_lrs, pct_start=0.3, div=5.0, cbs=self._get_training_cbs(interrupt_epoch))
+        self.learn.fit_one_cycle(epochs, lrs.valley, cbs=self._get_training_cbs(interrupt_epoch))
 
     def bt_learning(self,epochs:int,interrupt_epoch:int):
         """If the encoder is not pretrained, we can do normal training.

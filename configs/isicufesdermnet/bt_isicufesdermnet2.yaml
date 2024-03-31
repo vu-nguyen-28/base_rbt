@@ -10,7 +10,7 @@ hs: 8192  # size of hidden dimension
 bt_augs: bt_imagenet_aug_pipelines # other options: bt_`dataset_name`_aug_pipelines
 model_type: sparse_head_barlow_twins  #`barlow_twins` or `indiv_sparse_barlow_twins`, `group_sparse_barlow_twins`, `proj_group_sparse_barlow_twins`
 lmb: 0.0001220703125
-sparsity_level: 0.0001220703125
+sparsity_level: 0.01
 wd: 0.0000015 #1.5*1e-6 which is the deault in the paper. We may have to ablate as a control to our idea though
 freeze_epochs: 1
 num_it: 100
