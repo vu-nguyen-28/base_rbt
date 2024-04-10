@@ -20,7 +20,6 @@ from self_supervised.augmentations import *
 from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
-from .utils import *
 
 # %% ../nbs/base_model.ipynb 6
 #My edited version of RandTransform

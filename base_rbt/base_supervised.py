@@ -18,7 +18,6 @@ from self_supervised.layers import *
 import kornia.augmentation as korniatfm
 import torchvision.transforms as tvtfm
 from fastai.learner import load_learner
-from .utils import *
 from .base_model import get_barlow_twins_aug_pipelines
 from .metrics import *
 
